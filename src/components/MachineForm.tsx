@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase, Client } from '../lib/supabase';
-import { Save, AlertCircle, Plus, X, Upload, ImageIcon } from 'lucide-react';
+import { Save, AlertCircle, Plus, X, Upload, ImageIcon, FileText, ExternalLink } from 'lucide-react';
 import Select from 'react-select';
 import { Domaine, PosteTechnique, Secteur, Site } from '../types/posteTechnique';
 import SitePopup from './postetechnique/SitePopup';
@@ -33,6 +33,7 @@ export default function MachineForm() {
   const [clients, setClients] = useState<Client[]>([]);
   const [machineImageFile, setMachineImageFile] = useState<File | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [machineDocumentFile, setMachineDocumentFile] = useState<File | null>(null);
 
 
   const [formData, setFormData] = useState<MachineFormData>({
@@ -254,6 +255,56 @@ export default function MachineForm() {
 
     return urlData.publicUrl;
   }
+
+  function handleMachineDocumentChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] || null;
+    if (!file) return;
+
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('La documentation doit être un PDF ou une image JPG, PNG ou WebP.');
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      setError('La documentation ne doit pas dépasser 15 Mo.');
+      e.target.value = '';
+      return;
+    }
+
+    setError('');
+    setMachineDocumentFile(file);
+  }
+
+  async function uploadMachineDocument(prefixId: string): Promise<string | null> {
+    if (!machineDocumentFile) return formData.manuel_url || null;
+
+    const ext = machineDocumentFile.name.split('.').pop()?.toLowerCase() || 'pdf';
+    const safeName = machineDocumentFile.name
+      .replace(/\.[^/.]+$/, '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'documentation';
+    const fileName = `machines/documentation/${prefixId}/${Date.now()}-${safeName}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('gmao-photos')
+      .upload(fileName, machineDocumentFile, {
+        contentType: machineDocumentFile.type,
+        upsert: false,
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage
+      .from('gmao-photos')
+      .getPublicUrl(fileName);
+
+    return urlData.publicUrl;
+  }
 const generateCodePT = () => {
   const site = sites.find(s => s.id === newPosteData.site_id);
   const domaine = domaines.find(d => d.id === newPosteData.domaine_id);
@@ -341,13 +392,15 @@ async function handleCreatePoste(e: React.FormEvent) {
     setError('');
 
     try {
-      const imageUrl = await uploadMachineImage(isEdit && id ? id : crypto.randomUUID());
+      const storagePrefixId = isEdit && id ? id : crypto.randomUUID();
+      const imageUrl = await uploadMachineImage(storagePrefixId);
+      const documentUrl = await uploadMachineDocument(storagePrefixId);
 
       const machineData = {
         ...formData,
         puissance: formData.puissance || null,
         tension: formData.tension || null,
-        manuel_url: formData.manuel_url || null,
+        manuel_url: documentUrl,
         image_url: imageUrl,
         client_id: formData.client_id || null,
         poste_technique_id: formData.poste_technique_id || null,
@@ -943,15 +996,74 @@ const filteredSecteurs = newPosteData.domaine_id
 
                 <div className="lg:col-span-3">
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    URL du manuel
+                    Documentation de la machine
                   </label>
-                  <input
-                    type="url"
-                    value={formData.manuel_url}
-                    onChange={(e) => setFormData({ ...formData, manuel_url: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#ee6b1a] focus:border-[#ee6b1a] transition-all"
-                    placeholder="https://example.com/manual.pdf"
-                  />
+                  <label className="flex cursor-pointer items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-slate-600 transition-all hover:border-[#ee6b1a] hover:bg-orange-50">
+                    <Upload size={22} className="text-[#ee6b1a]" />
+                    <span className="text-sm font-semibold">
+                      {machineDocumentFile ? machineDocumentFile.name : 'Ajouter un PDF ou une image'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="application/pdf,image/jpeg,image/png,image/webp"
+                      onChange={handleMachineDocumentChange}
+                      className="hidden"
+                    />
+                  </label>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Formats acceptés : PDF, JPG, PNG et WebP — 15 Mo maximum.
+                  </p>
+
+                  {(machineDocumentFile || formData.manuel_url) && (
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <FileText size={20} className="flex-shrink-0 text-[#ee6b1a]" />
+                        <span className="truncate text-sm font-medium text-slate-700">
+                          {machineDocumentFile?.name || 'Documentation actuelle'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!machineDocumentFile && formData.manuel_url && (
+                          <a
+                            href={formData.manuel_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-lg p-2 text-slate-600 hover:bg-white hover:text-[#ee6b1a]"
+                            title="Ouvrir la documentation"
+                          >
+                            <ExternalLink size={18} />
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMachineDocumentFile(null);
+                            setFormData(prev => ({ ...prev, manuel_url: '' }));
+                          }}
+                          className="rounded-lg p-2 text-red-600 hover:bg-white"
+                          title="Retirer la documentation"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4">
+                    <label className="mb-2 block text-xs font-medium text-slate-600">
+                      Ou renseigner une URL externe
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.manuel_url}
+                      onChange={(e) => {
+                        setMachineDocumentFile(null);
+                        setFormData({ ...formData, manuel_url: e.target.value });
+                      }}
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#ee6b1a] focus:border-[#ee6b1a] transition-all"
+                      placeholder="https://example.com/documentation.pdf"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
