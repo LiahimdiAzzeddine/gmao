@@ -692,6 +692,7 @@ export default function ClientInterventions() {
                     <tr>
                       <Th>Intervention / OT</Th>
                       <Th>Machine</Th>
+                      <Th>Gamme</Th>
                       <Th>Type</Th>
                       <Th>Technicien</Th>
                       <Th>Date début</Th>
@@ -925,16 +926,23 @@ function InterventionRow({
       <td className="px-4 py-3">
         <div className="font-semibold text-slate-900">#{intervention.id.slice(0, 8)}</div>
         <div className="text-xs text-slate-500 mt-1">OT #{ot?.numot || intervention.ordre_travail_id?.slice(0, 8) || '-'}</div>
-        {ot?.plan?.gamme?.nom && (
-          <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
-            <Wrench size={12} />
-            {ot.plan.gamme.nom}
-          </div>
-        )}
       </td>
       <td className="px-4 py-3">
         <div className="font-medium text-slate-900">{ot?.machine?.nom || 'Machine inconnue'}</div>
         <div className="text-xs text-slate-500">{ot?.machine?.modele || ot?.machine?.numero_serie || '-'}</div>
+      </td>
+      <td className="w-36 max-w-36 px-3 py-3">
+        <div className="group relative w-28">
+          <div className="truncate text-sm font-medium text-slate-900">
+            {ot?.plan?.gamme?.nom || 'Non renseignée'}
+          </div>
+          <div
+            role="tooltip"
+            className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden max-w-72 whitespace-normal rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white shadow-lg group-hover:block"
+          >
+            {ot?.plan?.gamme?.nom || 'Non renseignée'}
+          </div>
+        </div>
       </td>
       <td className="px-4 py-3">
         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getTypeClass(ot?.type || null)}`}>
@@ -1028,6 +1036,10 @@ function InterventionCard({
             </span>
           </div>
           <div className="mt-1.5 font-semibold text-slate-700 text-sm">{ot?.machine?.nom || 'Machine inconnue'}</div>
+          <div className="mt-1 flex items-center gap-1 text-xs font-medium text-slate-500">
+            <Wrench size={12} />
+            <span className="truncate">{ot?.plan?.gamme?.nom || 'Gamme non renseignée'}</span>
+          </div>
         </div>
         <span className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold border ${result.className}`}>
           <ResultIcon size={14} />

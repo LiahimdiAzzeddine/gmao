@@ -68,6 +68,14 @@ interface Intervention {
         type: string;
       } | null;
     } | null;
+    ot_parent?: {
+      plan: {
+        gamme: {
+          nom: string;
+          type: string;
+        } | null;
+      } | null;
+    } | null;
   };
   technicien: {
     id: string;
@@ -122,6 +130,9 @@ const InterventionDetails: React.FC = () => {
             type,
             statut,
             date_programmee,
+            plan_id,
+            ot_parent_id,
+            intervention_source_id,
             machine:machines(
               id,
               nom,
@@ -156,6 +167,27 @@ const InterventionDetails: React.FC = () => {
 
       if (fetchError) throw fetchError;
       if (!data) throw new Error('Intervention non trouvée');
+
+      // Un OT correctif peut ne pas avoir de plan propre : sa gamme est alors
+      // récupérée depuis l'OT parent sans bloquer le chargement de la page.
+      if (!data.ordre_travail?.plan?.gamme && data.ordre_travail?.ot_parent_id) {
+        const { data: parentOT } = await supabase
+          .from('ordres_travail')
+          .select(`
+            plan:plans_maintenance(
+              gamme:gammes_maintenance(
+                nom,
+                type
+              )
+            )
+          `)
+          .eq('id', data.ordre_travail.ot_parent_id)
+          .maybeSingle();
+
+        if (parentOT?.plan) {
+          data.ordre_travail.ot_parent = { plan: parentOT.plan };
+        }
+      }
 
       setIntervention(data);
     } catch (err) {
@@ -675,6 +707,9 @@ const InterventionDetails: React.FC = () => {
   }
 
   const etatMachineConfig = getMachineStateConfig(intervention.etat_machine_apres);
+  const gammeNom = intervention.ordre_travail.plan?.gamme?.nom
+    || intervention.ordre_travail.ot_parent?.plan?.gamme?.nom
+    || null;
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -844,8 +879,41 @@ const InterventionDetails: React.FC = () => {
             {/* Étapes de gamme (résumé) */}
             {intervention.etapes_gamme_checkees && intervention.etapes_gamme_checkees.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-6">
-                <h2 className="text-lg font-semibold text-slate-800 mb-2">Étapes de gamme</h2>
-                <p className="text-sm text-slate-600">{intervention.etapes_gamme_checkees.length} étape(s) enregistrée(s)</p>
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-800">Étapes de gamme</h2>
+                    <p className="mt-0.5 text-sm font-medium text-slate-600">
+                      {gammeNom || 'Gamme non renseignée'}
+                    </p>
+                  </div>
+                  <span className="text-xs font-medium text-slate-500">
+                    {intervention.etapes_gamme_checkees.length} étape{intervention.etapes_gamme_checkees.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                  {[...intervention.etapes_gamme_checkees]
+                    .sort((a: any, b: any) => (a.ordre || 0) - (b.ordre || 0))
+                    .map((etape: any, index: number) => (
+                      <div key={etape.etape_id || index} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                        <span className="mt-0.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+                          {etape.ordre || index + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-slate-800">{etape.description || 'Étape sans description'}</p>
+                          {etape.commentaire && (
+                            <p className="mt-0.5 truncate text-xs text-slate-500" title={etape.commentaire}>
+                              {etape.commentaire}
+                            </p>
+                          )}
+                        </div>
+                        <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-slate-600">
+                          <StatutIcon statut={etape.statut} size={15} />
+                          {etape.statut || 'Non renseigné'}
+                        </span>
+                      </div>
+                    ))}
+                </div>
               </div>
             )}
 

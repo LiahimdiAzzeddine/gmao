@@ -39,6 +39,7 @@ interface Intervention {
         date_programmee: string;
         ot_parent_id?: string | null;
         intervention_source_id?: string | null;
+        gamme_nom?: string | null;
         machine: {
             id: string;
             nom: string;
@@ -261,6 +262,8 @@ const InterventionsTable: React.FC = () => {
                         type,
                         statut,
                         date_programmee,
+                        ot_parent_id,
+                        intervention_source_id,
                         machine:machines(
                             id,
                             nom,
@@ -293,7 +296,43 @@ const InterventionsTable: React.FC = () => {
 
             if (error) throw error;
 
-            setInterventions(data || []);
+            const interventionsAvecGamme = (data || []).map((item: any) => ({
+                ...item,
+                ordre_travail: {
+                    ...item.ordre_travail,
+                    gamme_nom: item.ordre_travail?.plan?.gamme?.nom || null
+                }
+            }));
+
+            const parentIds = [...new Set(
+                interventionsAvecGamme
+                    .filter((item: any) => !item.ordre_travail?.gamme_nom && item.ordre_travail?.ot_parent_id)
+                    .map((item: any) => item.ordre_travail.ot_parent_id)
+            )];
+
+            if (parentIds.length > 0) {
+                const { data: parents } = await supabase
+                    .from('ordres_travail')
+                    .select(`
+                        id,
+                        plan:plans_maintenance(
+                            gamme:gammes_maintenance(nom)
+                        )
+                    `)
+                    .in('id', parentIds);
+
+                const gammeParParent = new Map(
+                    (parents || []).map((parent: any) => [parent.id, parent.plan?.gamme?.nom || null])
+                );
+
+                interventionsAvecGamme.forEach((item: any) => {
+                    if (!item.ordre_travail?.gamme_nom && item.ordre_travail?.ot_parent_id) {
+                        item.ordre_travail.gamme_nom = gammeParParent.get(item.ordre_travail.ot_parent_id) || null;
+                    }
+                });
+            }
+
+            setInterventions(interventionsAvecGamme);
         } catch (err) {
             console.error('Erreur lors du chargement des interventions:', err);
             setError(err instanceof Error ? err.message : 'Une erreur est survenue');
@@ -997,11 +1036,13 @@ const InterventionsTable: React.FC = () => {
         const machineName = intervention.ordre_travail?.machine?.nom || '';
         const machineModele = intervention.ordre_travail?.machine?.modele || '';
         const technicienNom = intervention.technicien?.nom || '';
+        const gammeNom = intervention.ordre_travail?.gamme_nom || '';
         const clientName = intervention.ordre_travail?.machine?.client?.raison_sociale || 
                           intervention.ordre_travail?.machine?.client?.prenom || '';
 
         const matchesSearch =
             machineName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            gammeNom.toLowerCase().includes(searchTerm.toLowerCase()) ||
             machineModele.toLowerCase().includes(searchTerm.toLowerCase()) ||
             technicienNom.toLowerCase().includes(searchTerm.toLowerCase()) ||
             clientName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -1427,6 +1468,15 @@ const InterventionsTable: React.FC = () => {
                                         </span>
                                     </div>
 
+                                    {/* Gamme */}
+                                    <div className="flex items-center gap-2">
+                                        <FileText size={14} className="text-slate-400 flex-shrink-0" />
+                                        <span className="text-xs text-slate-600">Gamme:</span>
+                                        <span className="truncate text-xs font-medium text-slate-900">
+                                            {intervention.ordre_travail?.gamme_nom || 'Non renseignée'}
+                                        </span>
+                                    </div>
+
                                     {/* Technicien */}
                                     <div className="flex items-center gap-2">
                                         <User size={14} className="text-slate-400 flex-shrink-0" />
@@ -1553,6 +1603,9 @@ const InterventionsTable: React.FC = () => {
                                         Machine
                                     </th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                                        Gamme
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                                         Client
                                     </th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
@@ -1604,6 +1657,14 @@ const InterventionsTable: React.FC = () => {
                                             <div className="text-xs text-slate-500">
                                                 {intervention.ordre_travail?.machine?.modele || ''}
                                             </div>
+                                        </td>
+                                        <td className="max-w-56 px-6 py-4">
+                                            <span
+                                                className="block truncate text-sm font-medium text-slate-900"
+                                                title={intervention.ordre_travail?.gamme_nom || 'Non renseignée'}
+                                            >
+                                                {intervention.ordre_travail?.gamme_nom || 'Non renseignée'}
+                                            </span>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="text-sm text-slate-900 font-medium">
