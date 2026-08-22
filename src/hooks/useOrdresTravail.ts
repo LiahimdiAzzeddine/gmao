@@ -17,7 +17,7 @@ export type Filters = {
 }
 
 // Hook personnalisé pour charger les données avec pagination
-export function useOrdresTravail(filters: Filters, page: number) {
+export function useOrdresTravail(filters: Filters, page: number, refreshKey = 0) {
   const [ordres, setOrdres] = useState<OrdreTravailDetail[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -216,7 +216,7 @@ export function useOrdresTravail(filters: Filters, page: number) {
       }
     }
     loadData()
-  }, [filters, page])
+  }, [filters, page, refreshKey])
 
   return { ordres, loading, error, totalCount, clients }
 }

@@ -65,7 +65,7 @@ export default function OTPreventifsPage() {
         </div>
       </div>
 
-      <OrdresTravailList fixedTypeOt="préventif" hideTypeFilter />
+      <OrdresTravailList fixedTypeOt="préventif" hideTypeFilter allowDelete />
     </div>
   );
 }

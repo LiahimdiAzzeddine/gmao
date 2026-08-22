@@ -1,31 +1,52 @@
 import { useState, useEffect, useRef } from 'react';
 import * as React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, X, Filter, Settings, MapPin, Calendar, ClipboardList } from 'lucide-react';
+import { Search, X, Filter, Settings, MapPin, Calendar, ClipboardList, Building2, LayoutGrid, List } from 'lucide-react';
 import { supabase, Machine, Client } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import TechnicienLayout from '../components/TechnicienLayout';
 import { ALL_MACHINE_STATES, getMachineStateConfig } from '../types/machineState';
 
+const TECHNICIAN_MACHINE_FILTERS_KEY = 'technicien-machines-filters';
+
+type SavedMachineFilters = {
+  searchTerm?: string;
+  filterEtat?: string;
+  filterClient?: string;
+  filterDateProgrammeeFrom?: string;
+  filterDateProgrammeeTo?: string;
+  filterDateCreationFrom?: string;
+  filterDateCreationTo?: string;
+  viewMode?: 'cards' | 'list';
+};
+
 export default function TechnicienMachines() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const savedFilters = useRef<SavedMachineFilters>(readSavedFilters()).current;
   const [allMachines, setAllMachines] = useState<Machine[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loadingClients, setLoadingClients] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   
-  const [otCounts, setOtCounts] = useState<Record<string, number>>({});
+  const [otCounts, setOtCounts] = useState<Record<string, {
+    total: number;
+    preventive: number;
+    corrective: number;
+    curative: number;
+  }>>({});
   
-  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
-  const [filterEtat, setFilterEtat] = useState<string>(searchParams.get('etat') || 'tous');
-  const [filterClient, setFilterClient] = useState<string>(searchParams.get('client') || 'tous');
-  const [filterDateProgrammeeFrom, setFilterDateProgrammeeFrom] = useState<string>(searchParams.get('date_programmee_from') || searchParams.get('date_programmee') || '');
-  const [filterDateProgrammeeTo, setFilterDateProgrammeeTo] = useState<string>(searchParams.get('date_programmee_to') || '');
-  const [filterDateCreationFrom, setFilterDateCreationFrom] = useState<string>(searchParams.get('date_creation_from') || searchParams.get('date_creation_ot') || '');
-  const [filterDateCreationTo, setFilterDateCreationTo] = useState<string>(searchParams.get('date_creation_to') || '');
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') ?? savedFilters.searchTerm ?? '');
+  const [filterEtat, setFilterEtat] = useState<string>(searchParams.get('etat') ?? savedFilters.filterEtat ?? 'tous');
+  const [filterClient, setFilterClient] = useState<string>(searchParams.get('client') ?? savedFilters.filterClient ?? '');
+  const [filterDateProgrammeeFrom, setFilterDateProgrammeeFrom] = useState<string>(searchParams.get('date_programmee_from') ?? searchParams.get('date_programmee') ?? savedFilters.filterDateProgrammeeFrom ?? '');
+  const [filterDateProgrammeeTo, setFilterDateProgrammeeTo] = useState<string>(searchParams.get('date_programmee_to') ?? savedFilters.filterDateProgrammeeTo ?? '');
+  const [filterDateCreationFrom, setFilterDateCreationFrom] = useState<string>(searchParams.get('date_creation_from') ?? searchParams.get('date_creation_ot') ?? savedFilters.filterDateCreationFrom ?? '');
+  const [filterDateCreationTo, setFilterDateCreationTo] = useState<string>(searchParams.get('date_creation_to') ?? savedFilters.filterDateCreationTo ?? '');
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>(savedFilters.viewMode ?? 'cards');
   const [showFilters, setShowFilters] = useState(false);
   
   const [currentPage, setCurrentPage] = useState(1);
@@ -38,6 +59,13 @@ export default function TechnicienMachines() {
     setAllMachines([]);
     setCurrentPage(1);
     setHasMore(true);
+    setTotalCount(0);
+
+    if (!filterClient) {
+      setLoading(false);
+      return;
+    }
+
     loadMachines(1, true);
   }, [profile, searchTerm, filterEtat, filterClient, filterDateProgrammeeFrom, filterDateProgrammeeTo, filterDateCreationFrom, filterDateCreationTo]);
 
@@ -51,16 +79,18 @@ export default function TechnicienMachines() {
       .then(({ data, error }) => {
         if (error) {
           console.error('Erreur chargement clients:', error);
+          setLoadingClients(false);
           return;
         }
         setClients(data || []);
+        setLoadingClients(false);
       });
   }, [profile]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+        if (filterClient && entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
           loadMachines(currentPage + 1, false);
         }
       },
@@ -76,7 +106,7 @@ export default function TechnicienMachines() {
         observer.unobserve(observerTarget.current);
       }
     };
-  }, [hasMore, loading, loadingMore, currentPage]);
+  }, [filterClient, hasMore, loading, loadingMore, currentPage]);
 
   useEffect(() => {
     if (allMachines.length > 0) {
@@ -89,14 +119,22 @@ export default function TechnicienMachines() {
     
     const { data: openData, error: openError } = await supabase
       .from('ordres_travail')
-      .select('machine_id, statut')
+      .select('machine_id, statut, type')
       .in('machine_id', machineIds)
       .not('statut', 'in', '("terminé","clôturé_avec_anomalie")');
 
     if (!openError && openData) {
-      const counts: Record<string, number> = {};
+      const counts: Record<string, { total: number; preventive: number; corrective: number; curative: number }> = {};
       openData.forEach(ot => {
-        counts[ot.machine_id] = (counts[ot.machine_id] || 0) + 1;
+        const count = counts[ot.machine_id] || { total: 0, preventive: 0, corrective: 0, curative: 0 };
+        const normalizedType = normalizeOTType(ot.type);
+
+        count.total += 1;
+        if (normalizedType === 'preventive') count.preventive += 1;
+        if (normalizedType === 'corrective') count.corrective += 1;
+        if (normalizedType === 'curative') count.curative += 1;
+
+        counts[ot.machine_id] = count;
       });
       setOtCounts(counts);
     }
@@ -113,10 +151,21 @@ export default function TechnicienMachines() {
     if (filterDateCreationTo) params.set('date_creation_to', filterDateCreationTo);
     
     setSearchParams(params, { replace: true });
-  }, [searchTerm, filterEtat, filterClient, filterDateProgrammeeFrom, filterDateProgrammeeTo, filterDateCreationFrom, filterDateCreationTo]);
+
+    sessionStorage.setItem(TECHNICIAN_MACHINE_FILTERS_KEY, JSON.stringify({
+      searchTerm,
+      filterEtat,
+      filterClient,
+      filterDateProgrammeeFrom,
+      filterDateProgrammeeTo,
+      filterDateCreationFrom,
+      filterDateCreationTo,
+      viewMode,
+    }));
+  }, [searchTerm, filterEtat, filterClient, filterDateProgrammeeFrom, filterDateProgrammeeTo, filterDateCreationFrom, filterDateCreationTo, viewMode]);
 
   async function loadMachines(page: number, reset: boolean) {
-    if (!profile) return;
+    if (!profile || !filterClient) return;
 
     try {
       if (reset) {
@@ -125,7 +174,6 @@ export default function TechnicienMachines() {
         setLoadingMore(true);
       }
 
-      const hasOTDateFilter = Boolean(filterDateProgrammeeFrom || filterDateProgrammeeTo || filterDateCreationFrom || filterDateCreationTo);
       let query = supabase
         .from('machines')
         .select(`
@@ -137,17 +185,17 @@ export default function TechnicienMachines() {
             domaine:domaines(*),
             lot:lots(*),
             secteur:secteurs(*)
-          )
-          ${hasOTDateFilter ? ', ordres_travail!inner(id)' : ''}
+          ),
+          ordres_travail!inner(id)
         `, { count: 'exact' });
+
+      query = query.not('ordres_travail.statut', 'in', '("terminé","clôturé_avec_anomalie")');
 
       if (filterEtat !== 'tous') {
         query = query.eq('etat', filterEtat);
       }
 
-      if (filterClient !== 'tous') {
-        query = query.eq('client_id', filterClient);
-      }
+      query = query.eq('client_id', filterClient);
 
       if (filterDateProgrammeeFrom) query = query.gte('ordres_travail.date_programmee', filterDateProgrammeeFrom);
       if (filterDateProgrammeeTo) query = query.lt('ordres_travail.date_programmee', getNextDate(filterDateProgrammeeTo));
@@ -187,7 +235,6 @@ export default function TechnicienMachines() {
   const resetFilters = () => {
     setSearchTerm('');
     setFilterEtat('tous');
-    setFilterClient('tous');
     setFilterDateProgrammeeFrom('');
     setFilterDateProgrammeeTo('');
     setFilterDateCreationFrom('');
@@ -198,13 +245,13 @@ export default function TechnicienMachines() {
     let count = 0;
     if (searchTerm.trim()) count++;
     if (filterEtat !== 'tous') count++;
-    if (filterClient !== 'tous') count++;
     if (filterDateProgrammeeFrom || filterDateProgrammeeTo) count++;
     if (filterDateCreationFrom || filterDateCreationTo) count++;
     return count;
   };
 
   const activeFiltersCount = getActiveFiltersCount();
+  const selectedClient = clients.find((client) => client.id === filterClient);
 
   return (
     <TechnicienLayout>
@@ -219,6 +266,75 @@ export default function TechnicienMachines() {
         <div className="hidden rounded-lg border border-blue-600/30 bg-white px-3 py-1.5 text-xs font-bold text-blue-600 md:block md:px-4 md:py-2 md:text-sm">
           {allMachines.length} / {totalCount} machines
         </div>
+      </div>
+
+      {!filterClient && (
+        <div className="mx-auto mt-8 max-w-2xl rounded-2xl border border-blue-100 bg-white p-6 text-center shadow-lg shadow-blue-100/40 md:mt-12 md:p-10">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+            <Building2 size={32} />
+          </div>
+          <h2 className="text-xl font-black text-slate-900 md:text-2xl">Choisissez un client</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-slate-500 md:text-base">
+            Sélectionnez d'abord le client dont vous souhaitez consulter les machines.
+          </p>
+          <div className="mt-6">
+            {loadingClients ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {[...Array(4)].map((_, index) => (
+                  <div key={index} className="h-20 animate-pulse rounded-xl bg-slate-100" />
+                ))}
+              </div>
+            ) : clients.length > 0 ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {clients.map((client) => (
+                  <button
+                    key={client.id}
+                    type="button"
+                    onClick={() => setFilterClient(client.id)}
+                    className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-400 hover:bg-blue-50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+                  >
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition-colors group-hover:bg-blue-600 group-hover:text-white">
+                      <Building2 size={21} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-black text-slate-900 group-hover:text-blue-700">
+                        {client.raison_sociale || client.prenom || 'Client sans nom'}
+                      </span>
+                      <span className="mt-0.5 block text-xs font-medium text-slate-500">
+                        Voir les machines
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl bg-slate-50 px-4 py-5 text-sm font-medium text-slate-500">
+                Aucun client disponible.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {filterClient && (
+        <>
+      <div className="mb-4 flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 md:mb-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <Building2 size={20} className="shrink-0 text-blue-600" />
+          <div className="min-w-0">
+            <div className="text-xs font-semibold text-blue-600">Client sélectionné</div>
+            <div className="truncate text-sm font-black text-slate-900">
+              {selectedClient?.raison_sociale || selectedClient?.prenom || 'Client'}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setFilterClient('')}
+          className="ml-3 shrink-0 rounded-lg bg-white px-3 py-2 text-xs font-bold text-blue-700 shadow-sm ring-1 ring-blue-200 transition-colors hover:bg-blue-100 md:text-sm"
+        >
+          Changer de client
+        </button>
       </div>
 
       {/* Barre de recherche */}
@@ -275,24 +391,6 @@ export default function TechnicienMachines() {
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <label className="mb-2 block text-xs font-semibold text-slate-700 md:text-sm">
-                Client
-              </label>
-              <select
-                value={filterClient}
-                onChange={(e) => setFilterClient(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm ring-1 ring-slate-100 transition-all focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
-              >
-                <option value="tous">Tous les clients</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.raison_sociale || client.prenom || 'Client sans nom'}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div>
               <label className="mb-2 block text-xs font-semibold text-slate-700 md:text-sm">
                 État de la machine
@@ -389,10 +487,42 @@ export default function TechnicienMachines() {
 
       {/* Grille des machines */}
       {!loading && allMachines.length > 0 && (
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-slate-600">
+            {allMachines.length} machine{allMachines.length > 1 ? 's' : ''} affichée{allMachines.length > 1 ? 's' : ''}
+          </p>
+          <div className="flex rounded-lg bg-slate-100 p-1" role="group" aria-label="Mode d'affichage">
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              aria-pressed={viewMode === 'cards'}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-all ${
+                viewMode === 'cards' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <LayoutGrid size={15} />
+              Cartes
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              aria-pressed={viewMode === 'list'}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-all ${
+                viewMode === 'list' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <List size={15} />
+              Liste
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!loading && allMachines.length > 0 && viewMode === 'cards' && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5 lg:grid-cols-3">
           {allMachines.map((machine) => {
             const stateConfig = getMachineStateConfig(machine.etat);
-            const otCount = otCounts[machine.id] || 0;
+            const otCount = otCounts[machine.id];
 
             return (
               <div
@@ -443,17 +573,86 @@ export default function TechnicienMachines() {
                 </div>
 
                 {/* Badge OT */}
-                {otCount > 0 && (
+                {otCount && otCount.total > 0 && (
                   <div className="mt-4 pt-4 border-t border-slate-100">
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <ClipboardList size={12} className="text-orange-600" />
-                      <span className="font-bold text-orange-700">
-                        {otCount} OT {otCount > 1 ? 'actifs' : 'actif'}
-                      </span>
+                    <div className="mb-2 flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <ClipboardList size={13} className="text-orange-600" />
+                      <span>{otCount.total} OT {otCount.total > 1 ? 'actifs' : 'actif'}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {otCount.corrective > 0 && (
+                        <span className="rounded-md bg-orange-100 px-2 py-1 text-[11px] font-bold text-orange-700">
+                          {otCount.corrective} {otCount.corrective > 1 ? 'correctifs' : 'correctif'}
+                        </span>
+                      )}
+                      {otCount.preventive > 0 && (
+                        <span className="rounded-md bg-purple-100 px-2 py-1 text-[11px] font-bold text-purple-700">
+                          {otCount.preventive} {otCount.preventive > 1 ? 'préventifs' : 'préventif'}
+                        </span>
+                      )}
+                      {otCount.curative > 0 && (
+                        <span className="rounded-md bg-rose-100 px-2 py-1 text-[11px] font-bold text-rose-700">
+                          {otCount.curative} {otCount.curative > 1 ? 'curatifs' : 'curatif'}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
+            );
+          })}
+        </div>
+      )}
+
+      {!loading && allMachines.length > 0 && viewMode === 'list' && (
+        <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+          {allMachines.map((machine, index) => {
+            const stateConfig = getMachineStateConfig(machine.etat);
+            const otCount = otCounts[machine.id];
+
+            return (
+              <button
+                key={machine.id}
+                type="button"
+                onClick={() => navigate(`/machine/${machine.id}`)}
+                className={`group flex w-full flex-col gap-3 p-4 text-left transition-colors hover:bg-blue-50/60 sm:flex-row sm:items-center ${
+                  index > 0 ? 'border-t border-slate-100' : ''
+                }`}
+              >
+                <span className="flex min-w-0 flex-1 items-center gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-700">
+                    <Settings size={20} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-slate-900 group-hover:text-blue-700 md:text-base">{machine.nom}</span>
+                    <span className="mt-0.5 block truncate text-xs font-medium text-slate-500">
+                      {[machine.modele, machine.localisation].filter(Boolean).join(' • ') || 'Aucun détail'}
+                    </span>
+                  </span>
+                </span>
+
+                <span className="flex flex-wrap items-center gap-2 sm:justify-end">
+                  {otCount?.corrective > 0 && (
+                    <span className="rounded-md bg-orange-100 px-2 py-1 text-[11px] font-bold text-orange-700">
+                      {otCount.corrective} {otCount.corrective > 1 ? 'correctifs' : 'correctif'}
+                    </span>
+                  )}
+                  {otCount?.preventive > 0 && (
+                    <span className="rounded-md bg-purple-100 px-2 py-1 text-[11px] font-bold text-purple-700">
+                      {otCount.preventive} {otCount.preventive > 1 ? 'préventifs' : 'préventif'}
+                    </span>
+                  )}
+                  {otCount?.curative > 0 && (
+                    <span className="rounded-md bg-rose-100 px-2 py-1 text-[11px] font-bold text-rose-700">
+                      {otCount.curative} {otCount.curative > 1 ? 'curatifs' : 'curatif'}
+                    </span>
+                  )}
+                  <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold ${stateConfig.bgColor} ${stateConfig.textColor} ${stateConfig.borderColor}`}>
+                    <span className={`h-2 w-2 rounded-full ${stateConfig.dotColor}`} />
+                    {stateConfig.label}
+                  </span>
+                </span>
+              </button>
             );
           })}
         </div>
@@ -471,6 +670,8 @@ export default function TechnicienMachines() {
           <div className="text-sm text-slate-500">Toutes les machines sont affichées</div>
         )}
       </div>
+        </>
+      )}
     </TechnicienLayout>
   );
 }
@@ -479,4 +680,24 @@ function getNextDate(value: string): string {
   const date = new Date(`${value}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + 1);
   return date.toISOString().slice(0, 10);
+}
+
+function readSavedFilters(): SavedMachineFilters {
+  try {
+    return JSON.parse(sessionStorage.getItem(TECHNICIAN_MACHINE_FILTERS_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function normalizeOTType(value?: string | null): 'preventive' | 'corrective' | 'curative' | 'other' {
+  const normalized = (value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  if (normalized.includes('prevent')) return 'preventive';
+  if (normalized.includes('correct')) return 'corrective';
+  if (normalized.includes('curat')) return 'curative';
+  return 'other';
 }

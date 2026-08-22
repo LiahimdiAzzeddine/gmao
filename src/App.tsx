@@ -439,8 +439,6 @@ function AppRoutes() {
         <Route path="/maintenance-pdf/:interventionId" element={<MaintenancePDFGenerator />} />
 
 
-        {/* La gestion de projet est désormais hébergée dans une application séparée. */}
-        <Route path="/gestion/*" element={<Navigate to="/admin" replace />} />
       </Routes>
       <ToastContainer position="top-right" autoClose={3000} />
 

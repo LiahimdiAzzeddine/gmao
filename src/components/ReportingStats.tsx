@@ -15,7 +15,6 @@ import {
   Target
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { supabaseGes } from '../lib/supagestion';
 
 interface ReportingStats {
   totalInterventions: number;

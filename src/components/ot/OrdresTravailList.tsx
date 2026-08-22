@@ -1,20 +1,24 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Filter, X, Wrench, XCircle, LayoutGrid, List, Calendar, User, Building2, Loader2 } from 'lucide-react'
+import { Filter, X, Wrench, XCircle, LayoutGrid, List, Calendar, User, Building2, Loader2, Trash2, AlertTriangle } from 'lucide-react'
 import { Filters, ITEMS_PER_PAGE, useOrdresTravail } from '../../hooks/useOrdresTravail'
 import {  getStatutConfig, getTypePlanColor } from './getStatutConfig'
 import OrdreTravailCard from './OrdreTravailCard'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { renderRecurrence } from '../../utils/renderRecurrence'
 import { TypeOt } from '../../types/ot'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../contexts/AuthContext'
 
 // Composant principal
 type OrdresTravailListProps = {
   fixedTypeOt?: TypeOt
   hideTypeFilter?: boolean
+  allowDelete?: boolean
 }
 
-export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false }: OrdresTravailListProps) {
+export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false, allowDelete = false }: OrdresTravailListProps) {
   const navigate = useNavigate()
+  const { profile } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const observerTarget = useRef<HTMLDivElement>(null)
   
@@ -22,6 +26,10 @@ export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false 
   const [page, setPage] = useState(1)
   const [allOrdres, setAllOrdres] = useState<any[]>([])
   const [hasMore, setHasMore] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteCandidate, setDeleteCandidate] = useState<any | null>(null)
+  const [deleteMessage, setDeleteMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>((searchParams.get('view') as 'grid' | 'list') || 'list')
   const [filters, setFilters] = useState<Filters>({
     clientId: searchParams.get('client') || '',
@@ -32,7 +40,48 @@ export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false 
     dateTo: searchParams.get('dateTo') || ''
   })
   
-  const { ordres, loading, error, totalCount, clients } = useOrdresTravail(filters, page)
+  const { ordres, loading, error, totalCount, clients } = useOrdresTravail(filters, page, refreshKey)
+  const canDelete = allowDelete && profile?.role === 'admin'
+
+  const requestDelete = (ot: any) => {
+    if (!canDelete || deletingId) return
+    setDeleteMessage(null)
+    setDeleteCandidate(ot)
+  }
+
+  const confirmDelete = async () => {
+    if (!canDelete || deletingId || !deleteCandidate) return
+
+    const ot = deleteCandidate
+    const reference = ot.numot ? `OT ${ot.numot}` : `OT ${ot.id.slice(0, 8)}`
+
+    setDeletingId(ot.id)
+    setDeleteMessage(null)
+    try {
+      const { error: deleteError } = await supabase
+        .from('ordres_travail')
+        .delete()
+        .eq('id', ot.id)
+
+      if (deleteError) throw deleteError
+
+      setAllOrdres(prev => prev.filter(item => item.id !== ot.id))
+      setPage(1)
+      setHasMore(true)
+      setRefreshKey(value => value + 1)
+      setDeleteCandidate(null)
+      setDeleteMessage({ type: 'success', text: `${reference} a été supprimé avec succès.` })
+    } catch (deleteError) {
+      console.error('Erreur suppression OT:', deleteError)
+      setDeleteCandidate(null)
+      setDeleteMessage({
+        type: 'error',
+        text: "Impossible de supprimer cet OT. Il peut être lié à une intervention ou à d'autres données.",
+      })
+    } finally {
+      setDeletingId(null)
+    }
+  }
   
   // Réinitialiser quand les filtres changent
   useEffect(() => {
@@ -155,8 +204,61 @@ export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false 
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50/30 to-slate-50 py-8">
+      {deleteCandidate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-ot-title">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="p-6 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <AlertTriangle className="h-7 w-7" />
+              </div>
+              <h2 id="delete-ot-title" className="text-xl font-black text-slate-900">Confirmer la suppression</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Voulez-vous vraiment supprimer définitivement{' '}
+                <strong className="text-slate-900">
+                  {deleteCandidate.numot ? `l’OT ${deleteCandidate.numot}` : `l’OT ${deleteCandidate.id.slice(0, 8)}`}
+                </strong>
+                {' '}de la machine <strong className="text-slate-900">{deleteCandidate.machine?.nom || 'inconnue'}</strong> ?
+              </p>
+              <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                Cette action est irréversible.
+              </p>
+            </div>
+            <div className="flex gap-3 border-t border-slate-100 bg-slate-50 p-4">
+              <button
+                type="button"
+                onClick={() => setDeleteCandidate(null)}
+                disabled={Boolean(deletingId)}
+                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={Boolean(deletingId)}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-wait disabled:opacity-60"
+              >
+                {deletingId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {deletingId ? 'Suppression...' : 'Confirmer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="space-y-6">
+          {deleteMessage && (
+            <div className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold ${
+              deleteMessage.type === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : 'border-red-200 bg-red-50 text-red-800'
+            }`}>
+              <span>{deleteMessage.text}</span>
+              <button type="button" onClick={() => setDeleteMessage(null)} className="ml-3 rounded p-1 hover:bg-black/5" aria-label="Fermer">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           {/* Barre de filtres - Design amélioré */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
         <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
@@ -360,6 +462,8 @@ export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false 
                 statutConfig={statutConfig}
                 StatutIcon={StatutIcon}
                 getTypePlanColor={getTypePlanColor}
+                onDelete={canDelete ? requestDelete : undefined}
+                deleting={deletingId === ot.id}
               />
             )
           })}
@@ -393,6 +497,7 @@ export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false 
                     <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">Date</th>
                     <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">Technicien</th>
                     <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">Statut</th>
+                    {canDelete && <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -477,6 +582,23 @@ export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false 
                           </span>
                         </div>
                       </td>
+                      {canDelete && (
+                        <td className="px-6 py-4 text-center">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              requestDelete(ot)
+                            }}
+                            disabled={deletingId === ot.id}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 transition-colors hover:bg-red-600 hover:text-white disabled:cursor-wait disabled:opacity-50"
+                            title="Supprimer cet OT"
+                          >
+                            {deletingId === ot.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                            Supprimer
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   )
                 })}

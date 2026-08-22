@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   ClipboardList, Calendar, User, Clock, 
   CheckCircle2, PlayCircle, XCircle,
@@ -68,16 +68,31 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
 }) => {
   const navigate = useNavigate();
   const { profile } = useAuth(); // Récupérer le profil de l'utilisateur connecté
+  const savedFilters = useRef(readSavedOTFilters(machine.id)).current;
   const [expandedOT, setExpandedOT] = useState<string | null>(null);
   // Pour les techniciens, filtrer par défaut sur les OT non clôturés
-  const [filtreStatut, setFiltreStatut] = useState<string>(profile?.role === 'technicien' ? 'non_cloture' : 'tous');
-  const [filtreType, setFiltreType] = useState<string>('tous');
-  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [filtreStatut, setFiltreStatut] = useState<string>(savedFilters.filtreStatut || (profile?.role === 'technicien' ? 'non_cloture' : 'tous'));
+  const [filtreType, setFiltreType] = useState<string>(savedFilters.filtreType || 'tous');
+  const [searchTerm, setSearchTerm] = useState<string>(savedFilters.searchTerm || '');
   const [interventions, setInterventions] = useState<Intervention[]>([]);
   const [loadingInterventions, setLoadingInterventions] = useState<boolean>(true);
   const [generatingPDF, setGeneratingPDF] = useState<boolean>(false);
   const [savingClientValidationId, setSavingClientValidationId] = useState<string | null>(null);
   const [selectedClientValidation, setSelectedClientValidation] = useState<Intervention | null>(null);
+
+  useEffect(() => {
+    if (profile?.role === 'technicien') {
+      setFiltreStatut('non_cloture');
+    }
+  }, [profile?.role]);
+
+  useEffect(() => {
+    sessionStorage.setItem(getOTFiltersKey(machine.id), JSON.stringify({
+      filtreStatut,
+      filtreType,
+      searchTerm,
+    }));
+  }, [machine.id, filtreStatut, filtreType, searchTerm]);
 
   // Charger les interventions associées aux ordres de travail
   useEffect(() => {
@@ -193,18 +208,22 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
   // Filtrer les ordres de travail
   const ordresFiltres = useMemo(() => {
     return ordresTravail.filter((ot) => {
+      const normalizedStatus = normalizeFilterValue(ot.statut);
+      const normalizedType = normalizeOTType(ot.type);
+      const normalizedSearch = normalizeFilterValue(searchTerm.trim());
+
       // Pour les techniciens avec filtre 'non_cloture', exclure les OT terminés et clôturés avec anomalie
       const matchStatut = filtreStatut === 'tous' 
         ? true 
         : filtreStatut === 'non_cloture'
-        ? ot.statut !== 'terminé' && ot.statut !== 'clôturé_avec_anomalie'
-        : ot.statut === filtreStatut;
+        ? normalizedStatus !== 'termine' && normalizedStatus !== 'cloture_avec_anomalie'
+        : normalizedStatus === normalizeFilterValue(filtreStatut);
       
-      const matchType = filtreType === 'tous' || ot.type === filtreType;
-      const matchSearch = searchTerm === '' || 
-        ot.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ot.gamme_nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ot.technicien?.nom.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchType = filtreType === 'tous' || normalizedType === filtreType;
+      const matchSearch = normalizedSearch === '' || 
+        normalizeFilterValue(ot.id).includes(normalizedSearch) ||
+        normalizeFilterValue(ot.gamme_nom).includes(normalizedSearch) ||
+        normalizeFilterValue(ot.technicien?.nom).includes(normalizedSearch);
       
       return matchStatut && matchType && matchSearch;
     });
@@ -255,7 +274,13 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
         label: 'Curative'
       }
     };
-    return configs[type] || { color: 'bg-gray-100 text-gray-800 border-gray-200', label: type };
+    const normalizedType = normalizeOTType(type);
+    const normalizedConfigs: Record<string, TypeConfig> = {
+      preventif: configs['préventive'],
+      correctif: configs['corrective'],
+      curatif: configs.curative,
+    };
+    return normalizedConfigs[normalizedType] || { color: 'bg-gray-100 text-gray-800 border-gray-200', label: type };
   };
 
   const getTypeRowColor = (type: string): string => {
@@ -264,7 +289,12 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
       'corrective': 'bg-orange-50',
       'curative': 'bg-red-50'
     };
-    return colors[type] || 'bg-white';
+    const normalizedColors: Record<string, string> = {
+      preventif: colors['préventive'],
+      correctif: colors.corrective,
+      curatif: colors.curative,
+    };
+    return normalizedColors[normalizeOTType(type)] || 'bg-white';
   };
 
   const getTypeBorderColor = (type: string): string => {
@@ -273,7 +303,12 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
       'corrective': 'border-l-orange-500',
       'curative': 'border-l-red-500'
     };
-    return colors[type] || 'border-l-slate-300';
+    const normalizedColors: Record<string, string> = {
+      preventif: colors['préventive'],
+      correctif: colors.corrective,
+      curatif: colors.curative,
+    };
+    return normalizedColors[normalizeOTType(type)] || 'border-l-slate-300';
   };
 
   const formatDate = (dateString: string | null): string => {
@@ -617,9 +652,9 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
               className="w-full px-3 sm:px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
             >
               <option value="tous">Tous les types</option>
-              <option value="préventive">Préventive</option>
-              <option value="corrective">Corrective</option>
-              <option value="curative">Curative</option>
+              <option value="preventif">Préventif</option>
+              <option value="correctif">Correctif</option>
+              <option value="curatif">Curatif</option>
             </select>
           </div>
         </div>
@@ -677,12 +712,6 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
                          ot.statut === 'terminé' ? 'Clôturé' : 
                          'Annulé'}
                       </span>
-                      {ot.gamme_nom && (
-                        <div className="flex items-center gap-1">
-                          <Wrench size={12} className="text-orange-600" />
-                          <span className="text-xs text-slate-600 truncate max-w-[120px]">{ot.gamme_nom}</span>
-                        </div>
-                      )}
                     </div>
                   </div>
 
@@ -704,6 +733,16 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
                           year: 'numeric'
                         }).format(new Date(ot.date_programmee))}
                       </span>
+                    </div>
+
+                    <div className="flex items-start gap-2 rounded-lg bg-orange-50 px-2.5 py-2">
+                      <Wrench size={14} className="mt-0.5 flex-shrink-0 text-orange-600" />
+                      <div className="min-w-0">
+                        <span className="block text-[10px] font-bold uppercase tracking-wide text-orange-600">Gamme associée</span>
+                        <span className="block truncate text-sm font-semibold text-slate-800">
+                          {ot.gamme_nom || 'Aucune gamme associée'}
+                        </span>
+                      </div>
                     </div>
 
                     {ordreState.statusMessage && (
@@ -801,10 +840,13 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    ID / Gamme
+                    ID
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Type
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    Gamme associée
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Statut
@@ -833,19 +875,11 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
                   return (
                     <React.Fragment key={ot.id}>
                       <tr className={`hover:bg-slate-50 transition-colors border-l-4 ${getTypeBorderColor(ot.type)} ${getTypeRowColor(ot.type)}`}>
-                        {/* ID / Gamme */}
+                        {/* ID */}
                         <td className="px-4 py-3">
-                          <div className="flex flex-col gap-1">
-                            <span className="text-sm font-semibold text-slate-900">
-                              #{ot.id.slice(0, 8)}
-                            </span>
-                            {ot.gamme_nom && (
-                              <div className="flex items-center gap-1">
-                                <Wrench size={12} className="text-orange-600 flex-shrink-0" />
-                                <span className="text-xs text-slate-600">{ot.gamme_nom}</span>
-                              </div>
-                            )}
-                          </div>
+                          <span className="text-sm font-semibold text-slate-900">
+                            #{ot.id.slice(0, 8)}
+                          </span>
                         </td>
 
                         {/* Type */}
@@ -853,6 +887,16 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${typeConfig.color}`}>
                             {typeConfig.label}
                           </span>
+                        </td>
+
+                        {/* Gamme associée */}
+                        <td className="px-4 py-3">
+                          <div className="flex max-w-[220px] items-center gap-2">
+                            <Wrench size={14} className="flex-shrink-0 text-orange-600" />
+                            <span className={`truncate text-sm ${ot.gamme_nom ? 'font-semibold text-slate-800' : 'italic text-slate-400'}`} title={ot.gamme_nom || undefined}>
+                              {ot.gamme_nom || 'Aucune gamme'}
+                            </span>
+                          </div>
                         </td>
 
                         {/* Statut */}
@@ -955,7 +999,7 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
                       {/* DÉTAILS EXPANDABLES */}
                       {isExpanded && (
                         <tr className={`border-l-4 ${getTypeBorderColor(ot.type)}`}>
-                          <td colSpan={7} className={`px-4 py-4 ${getTypeRowColor(ot.type)}`}>
+                          <td colSpan={8} className={`px-4 py-4 ${getTypeRowColor(ot.type)}`}>
                             <div className="space-y-4">
                               {/* Informations d'intervention */}
                               {ot.intervention && (
@@ -1103,6 +1147,37 @@ function ClientValidationStatus({
       Valider cote client
     </button>
   );
+}
+
+function normalizeFilterValue(value?: string | null): string {
+  return (value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function normalizeOTType(value?: string | null): 'preventif' | 'correctif' | 'curatif' | 'autre' {
+  const normalized = normalizeFilterValue(value);
+  if (normalized.includes('prevent')) return 'preventif';
+  if (normalized.includes('correct')) return 'correctif';
+  if (normalized.includes('curat')) return 'curatif';
+  return 'autre';
+}
+
+function getOTFiltersKey(machineId: string): string {
+  return `machine-ot-filters-${machineId}`;
+}
+
+function readSavedOTFilters(machineId: string): {
+  filtreStatut?: string;
+  filtreType?: string;
+  searchTerm?: string;
+} {
+  try {
+    return JSON.parse(sessionStorage.getItem(getOTFiltersKey(machineId)) || '{}');
+  } catch {
+    return {};
+  }
 }
 
 export default OrdresTravail;
