@@ -423,7 +423,7 @@ export default function PlanActionTable() {
           Retour
         </button>
         <div className="text-center">
-          <Loader2 className="mx-auto h-10 w-10 animate-spin text-blue-600" />
+          <Loader2 className="mx-auto h-10 w-10 animate-spin text-[#f98440]" />
           <p className="mt-3 text-sm font-medium text-slate-600">Chargement du plan d'action...</p>
         </div>
       </div>
@@ -431,9 +431,9 @@ export default function PlanActionTable() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-slate-50 py-2">
       <div className="mx-auto max-w-[1800px] space-y-4">
-        <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+        <div className="rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100 md:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               {isClientView && (
@@ -445,11 +445,11 @@ export default function PlanActionTable() {
                   Retour
                 </button>
               )}
-              <div className="flex items-center gap-2 text-blue-700 font-semibold text-sm mb-1">
+              <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-[#f98440]">
                 <FileSpreadsheet size={18} />
                 Plan d'action
               </div>
-              <h1 className="text-2xl font-bold text-slate-900">Correctifs issus des OT preventifs</h1>
+              <h1 className="text-xl font-black text-slate-900 sm:text-2xl">Correctifs issus des OT preventifs</h1>
               <p className="text-sm text-slate-600 mt-1">
                 {selectedClient ? `Client: ${getClientName(selectedClient)} - ` : ''}
                 {filteredRows.length} action{filteredRows.length > 1 ? 's' : ''} affichee{filteredRows.length > 1 ? 's' : ''}
@@ -468,7 +468,7 @@ export default function PlanActionTable() {
               <select
                 value={selectedYear}
                 onChange={(event) => setSelectedYear(event.target.value)}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
               >
                 {availableYears.map((year) => (
                   <option key={year} value={year}>{year}</option>
@@ -480,7 +480,7 @@ export default function PlanActionTable() {
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Rechercher equipement, probleme, action..."
-                  className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                 />
               </div>
               <button
@@ -501,19 +501,19 @@ export default function PlanActionTable() {
           </div>
         )}
 
-        <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+        <div className="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-100">
           <div className="overflow-x-auto">
             <table className="min-w-[1980px] w-full border-collapse text-[12px]">
               <thead>
                 <tr>
-                  <th colSpan={13} className="h-8 border border-slate-900 bg-blue-600 text-white text-center font-bold">
+                  <th colSpan={13} className="h-8 border border-orange-700 bg-[#f98440] text-center font-bold text-white">
                     Plan d'action correctif
                   </th>
-                  <th colSpan={3} className="h-8 border border-slate-900 bg-blue-600 text-white text-center font-bold">
+                  <th colSpan={3} className="h-8 border border-orange-700 bg-[#f98440] text-center font-bold text-white">
                     Resultats des actions / Action Resultat
                   </th>
                 </tr>
-                <tr className="bg-blue-600 text-white">
+                <tr className="bg-[#f98440] text-white">
                   <HeaderCell className="w-[170px]">EQUIPEMENT</HeaderCell>
                   <HeaderCell className="w-[120px]">Lot</HeaderCell>
                   <HeaderCell className="w-[170px]">Famille de problemes</HeaderCell>
@@ -541,7 +541,7 @@ export default function PlanActionTable() {
                   </tr>
                 ) : (
                   filteredRows.map((row, index) => (
-                    <tr key={row.id} className={index % 2 === 0 ? 'bg-slate-100' : 'bg-blue-50'}>
+                    <tr key={row.id} className={index % 2 === 0 ? 'bg-slate-100' : 'bg-orange-50'}>
                       <BodyCell className="font-bold">{formatEquipment(row)}</BodyCell>
                       <BodyCell>{row.lot_defaillance || '-'}</BodyCell>
                       <BodyCell>{row.famille_probleme || '-'}</BodyCell>
@@ -573,14 +573,14 @@ export default function PlanActionTable() {
         {!isClientView && showClientModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
             <div className="w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-2xl">
-              <div className="flex items-start justify-between gap-4 bg-blue-600 px-5 py-4 text-white">
+              <div className="flex items-start justify-between gap-4 bg-[#f98440] px-5 py-4 text-white">
                 <div>
-                  <div className="flex items-center gap-2 text-sm font-semibold text-blue-100">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-white/80">
                     <Building2 size={18} />
                     Plan d'action par client
                   </div>
                   <h2 className="mt-1 text-2xl font-bold">Choisir un client</h2>
-                  <p className="mt-1 text-sm text-blue-100">
+                  <p className="mt-1 text-sm text-white/80">
                     Selectionnez le client pour recuperer son plan d'action issu des OT preventifs.
                   </p>
                 </div>
@@ -602,7 +602,7 @@ export default function PlanActionTable() {
                     value={clientSearchTerm}
                     onChange={(event) => setClientSearchTerm(event.target.value)}
                     placeholder="Rechercher un client..."
-                    className="w-full rounded-lg border border-slate-300 bg-white py-3 pl-10 pr-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    className="w-full rounded-lg border border-slate-300 bg-white py-3 pl-10 pr-3 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                     autoFocus
                   />
                 </div>
@@ -610,7 +610,7 @@ export default function PlanActionTable() {
                 <div className="max-h-[52vh] overflow-y-auto rounded-lg border border-slate-200">
                   {loadingClients ? (
                     <div className="flex items-center justify-center gap-2 px-4 py-10 text-sm font-medium text-slate-600">
-                      <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                      <Loader2 className="h-5 w-5 animate-spin text-[#f98440]" />
                       Chargement des clients...
                     </div>
                   ) : filteredClients.length === 0 ? (
@@ -622,8 +622,8 @@ export default function PlanActionTable() {
                       <button
                         key={client.id}
                         onClick={() => handleClientSelection(client.id)}
-                        className={`flex w-full items-center justify-between gap-4 border-b border-slate-100 px-4 py-3 text-left last:border-b-0 hover:bg-blue-50 ${
-                          client.id === selectedClientId ? 'bg-blue-50' : 'bg-white'
+                        className={`flex w-full items-center justify-between gap-4 border-b border-slate-100 px-4 py-3 text-left last:border-b-0 hover:bg-orange-50 ${
+                          client.id === selectedClientId ? 'bg-orange-50' : 'bg-white'
                         }`}
                       >
                         <span>
@@ -635,7 +635,7 @@ export default function PlanActionTable() {
                           )}
                         </span>
                         {client.id === selectedClientId && (
-                          <CheckCircle className="h-5 w-5 shrink-0 text-blue-600" />
+                          <CheckCircle className="h-5 w-5 shrink-0 text-[#f98440]" />
                         )}
                       </button>
                     ))

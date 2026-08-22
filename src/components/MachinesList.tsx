@@ -297,7 +297,7 @@ export default function MachinesList() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <RefreshCw className="animate-spin h-12 w-12 text-[#f15c00] mx-auto mb-4" />
+          <RefreshCw className="animate-spin h-12 w-12 text-[#f98440] mx-auto mb-4" />
           <p className="text-slate-600">Chargement des machines...</p>
         </div>
       </div>
@@ -306,13 +306,13 @@ export default function MachinesList() {
 
   return (
     <>
-      <div className="max-w-7xl mx-auto mb-14 ">
+      <div className="mx-auto mb-10 max-w-7xl">
         {showClientModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden">
-              <div className="bg-gradient-to-r from-orange-600 to-orange-700 p-6 text-white">
-                <h2 className="text-2xl font-bold">Sélectionner un client</h2>
-                <p className="text-orange-100 text-sm mt-1">Choisissez le client et appliquez des filtres optionnels</p>
+            <div className="w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-2xl">
+              <div className="bg-[#f98440] p-5 text-white">
+                <h2 className="text-xl font-black">Sélectionner un client</h2>
+                <p className="mt-1 text-sm text-white/80">Choisissez le client et appliquez des filtres optionnels</p>
               </div>
               <div className="p-6 max-h-[80vh] overflow-y-auto space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -321,7 +321,7 @@ export default function MachinesList() {
                     <select
                       value={preFilterEtat}
                       onChange={(e) => setPreFilterEtat(e.target.value)}
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#f98440]/30 focus:border-[#f98440]"
                     >
                       <option value="tous">Tous les états</option>
                       {ALL_MACHINE_STATES.map((state) => (
@@ -334,7 +334,7 @@ export default function MachinesList() {
                     <select
                       value={preFilterLot}
                       onChange={(e) => setPreFilterLot(e.target.value)}
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#f98440]/30 focus:border-[#f98440]"
                     >
                       <option value="tous">Tous les lots</option>
                       {lots.map((lot) => (
@@ -363,7 +363,7 @@ export default function MachinesList() {
                       <button
                         key={client.id}
                         onClick={() => handleClientSelection(client.id)}
-                        className={`w-full text-left p-4 rounded-2xl transition-all border ${client.id === filterClient ? 'border-orange-500 bg-orange-50 shadow-sm' : 'border-slate-200 hover:border-orange-500 hover:bg-orange-50'}`}
+                        className={`w-full rounded-lg border p-3 text-left transition-all ${client.id === filterClient ? 'border-[#f98440] bg-orange-50 shadow-sm' : 'border-slate-200 hover:border-[#f98440]/60 hover:bg-orange-50'}`}
                       >
                         <div className="font-semibold text-slate-800 truncate">{client.raison_sociale || client.prenom}</div>
                         <div className="text-sm text-slate-500 mt-1">Choisir ce client</div>
@@ -377,14 +377,14 @@ export default function MachinesList() {
         )}
 
         {/* En-tête avec statistiques */}
-        <div className="mb-8">
-          <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-6">
+          <div className="mb-5 flex flex-col gap-4 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100 sm:flex-row sm:items-center sm:justify-between md:p-5">
             {/* TITRE */}
             <div className="min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 leading-tight">
+              <h1 className="text-xl font-black leading-tight text-slate-900 sm:text-2xl">
                 Gestion des Machines
               </h1>
-              <p className="text-sm sm:text-base text-slate-600 mt-1">
+              <p className="mt-1 text-xs font-medium text-slate-500 sm:text-sm">
                 Gérez et surveillez toutes vos machines
               </p>
             </div>
@@ -418,10 +418,10 @@ export default function MachinesList() {
                   }}
                   className="
                     flex items-center justify-center gap-2
-                    bg-blue-100 text-blue-700 border border-blue-200
+                    bg-orange-50 text-[#f98440] border border-orange-200
                     px-4 py-3 sm:px-5
                     rounded-lg
-                    hover:bg-blue-200
+                    hover:bg-orange-100
                     transition-all
                     shadow-sm
                   "
@@ -437,11 +437,11 @@ export default function MachinesList() {
                 onClick={() => navigate('/admin/machine/new')}
                 className="
                   flex items-center justify-center gap-2
-                  bg-[#f15c00]
+                  bg-[#f98440]
                   text-white
                   px-4 py-3 sm:px-6
                   rounded-lg
-                  hover:bg-[#d14d00]
+                  hover:bg-[#e97435]
                   transition-all
                   shadow-md hover:shadow-lg
                   font-medium
@@ -460,20 +460,20 @@ export default function MachinesList() {
 
 
           {/* Statistiques */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
-            <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-[#f15c00]">
+          <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+            <div className="rounded-lg bg-[#f98440] p-3 text-white shadow-lg shadow-orange-200 md:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-slate-600 text-xs font-medium">
+                  <p className="text-xs font-bold text-white/80">
                     Total Machines
                   </p>
-                  <p className="text-xl font-bold text-slate-800 mt-0.5">
+                  <p className="mt-0.5 text-2xl font-black text-white">
                     {stats.total}
                   </p>
                 </div>
-                <div className="bg-orange-50 p-2 rounded-lg">
+                <div className="rounded-lg bg-black/10 p-2">
                   <svg
-                    className="w-5 h-5 text-[#f15c00]"
+                    className="h-5 w-5 text-white"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -489,7 +489,7 @@ export default function MachinesList() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-green-500">
+            <div className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-slate-100 md:p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-slate-600 text-xs font-medium">
@@ -517,7 +517,7 @@ export default function MachinesList() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-orange-500">
+            <div className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-slate-100 md:p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-slate-600 text-xs font-medium">
@@ -546,7 +546,7 @@ export default function MachinesList() {
             </div>
 
             {filterClient !== 'tous' && (
-              <div className="bg-white rounded-xl shadow-sm p-4 border-l-4 border-blue-500">
+              <div className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-slate-100 md:p-4">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 flex-1 mr-2">
                     <p className="text-slate-600 text-xs font-medium">
@@ -555,12 +555,12 @@ export default function MachinesList() {
                     <p className="text-sm font-bold text-slate-800 mt-1 truncate">
                       {getSelectedClientName()}
                     </p>
-                    <p className="text-xs text-blue-600 font-medium">
+                    <p className="text-xs font-medium text-[#f98440]">
                       {totalCount} machine{totalCount > 1 ? 's' : ''}
                     </p>
                   </div>
-                  <div className="bg-blue-50 p-2.5 rounded-lg flex-shrink-0">
-                    <Users className="w-6 h-6 text-blue-600" />
+                  <div className="flex-shrink-0 rounded-lg bg-orange-50 p-2.5">
+                    <Users className="h-6 w-6 text-[#f98440]" />
                   </div>
                 </div>
               </div>
@@ -568,7 +568,7 @@ export default function MachinesList() {
           </div>
 
           {/* Barre de recherche et filtres */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100 md:p-5">
             <div className="flex flex-col md:flex-row gap-4 mb-4">
               {/* Search Bar */}
               <div className="flex-1 relative">
@@ -578,7 +578,7 @@ export default function MachinesList() {
                   placeholder="Rechercher une machine..."
                   value={searchTerm}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#f15c00] focus:border-transparent transition-all"
+                  className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-4 transition-all focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                 />
                 {searchTerm && (
                   <button
@@ -595,7 +595,7 @@ export default function MachinesList() {
                 onClick={() => setShowFilters(!showFilters)}
                 className={`flex items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all shadow-sm ${
                   showFilters || getActiveFiltersCount() > 0
-                    ? 'bg-[#f15c00] text-white shadow-md'
+                    ? 'bg-[#f98440] text-white shadow-md'
                     : 'bg-white text-slate-700 border-2 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
                 }`}
               >
@@ -604,7 +604,7 @@ export default function MachinesList() {
                 {getActiveFiltersCount() > 0 && (
                   <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                     showFilters || getActiveFiltersCount() > 0
-                      ? 'bg-white text-[#f15c00]'
+                      ? 'bg-white text-[#f98440]'
                       : 'bg-slate-200 text-slate-700'
                   }`}>
                     {getActiveFiltersCount()}
@@ -615,7 +615,7 @@ export default function MachinesList() {
               {/* Add Machine Button - Hidden on mobile, shown on desktop */}
               <button
                 onClick={() => navigate('/admin/machine/new')}
-                className="hidden md:flex items-center gap-2 px-6 py-3 bg-[#f15c00] text-white rounded-lg hover:bg-[#d14d00] font-medium shadow-md hover:shadow-lg transition-all"
+                className="hidden items-center gap-2 rounded-lg bg-[#f98440] px-5 py-2.5 font-medium text-white shadow-md transition-all hover:bg-[#e97435] hover:shadow-lg md:flex"
               >
                 <Plus size={20} />
                 <span>Nouvelle Machine</span>
@@ -632,7 +632,7 @@ export default function MachinesList() {
                     <select
                       value={filterClient}
                       onChange={(e) => handleFilterClientChange(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#f15c00] focus:border-transparent appearance-none bg-white"
+                      className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-4 focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                     >
                       <option value="tous">Tous les clients</option>
                       {clients.map((client) => (
@@ -649,7 +649,7 @@ export default function MachinesList() {
                     <select
                       value={filterEtat}
                       onChange={(e) => handleFilterEtatChange(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#f15c00] focus:border-transparent appearance-none bg-white"
+                      className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-4 focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                     >
                       <option value="tous">Tous les états</option>
                       {ALL_MACHINE_STATES.map((state) => {
@@ -669,7 +669,7 @@ export default function MachinesList() {
                     <select
                       value={filterLot}
                       onChange={(e) => handleFilterLotChange(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#f15c00] focus:border-transparent appearance-none bg-white"
+                      className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-4 focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                     >
                       <option value="tous">Tous les lots</option>
                       {lots.map((lot) => (
@@ -705,7 +705,7 @@ export default function MachinesList() {
                   <>
                     <span className="text-slate-300">|</span>
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-blue-600">
+                      <p className="text-sm font-medium text-[#f98440]">
                         {selectedMachines.size} sélectionnée{selectedMachines.size > 1 ? "s" : ""}
                       </p>
                       <button
@@ -723,7 +723,7 @@ export default function MachinesList() {
                   reload();
                   loadGlobalStats();
                 }}
-                className="flex items-center gap-2 text-sm px-3 py-2 text-slate-600 hover:text-[#f15c00] hover:bg-orange-50 rounded-lg transition-all"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 transition-all hover:bg-orange-50 hover:text-[#f98440]"
               >
                 <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
                 <span>Actualiser</span>
@@ -733,7 +733,7 @@ export default function MachinesList() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div className="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-100">
           {totalCount === 0 ? (
             <div className="text-center py-16 bg-slate-50 rounded-lg">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-200 rounded-full mb-4">
@@ -767,7 +767,7 @@ export default function MachinesList() {
                       <th className="px-6 py-4 w-12">
                         <button
                           onClick={toggleSelectAll}
-                          className="text-slate-600 hover:text-blue-600 transition-colors"
+                          className="text-slate-600 transition-colors hover:text-[#f98440]"
                         >
                           {selectedMachines.size === machines.length && machines.length > 0 ? (
                             <CheckSquare size={20} />
@@ -860,14 +860,14 @@ export default function MachinesList() {
                               <div className="flex items-center gap-2 ml-2">
                                 <button
                                   onClick={() => setSelectedMachine(machine)}
-                                  className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                  className="rounded-lg p-2 text-slate-600 transition-all hover:bg-orange-50 hover:text-[#f98440]"
                                   title="QR Code"
                                 >
                                   <QrCode size={18} />
                                 </button>
                                 <button
                                   onClick={() => navigate(`/admin/machine/${machine.id}`)}
-                                  className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                  className="rounded-lg p-2 text-slate-600 transition-all hover:bg-orange-50 hover:text-[#f98440]"
                                   title="Modifier"
                                 >
                                   <Edit size={18} />
@@ -894,13 +894,13 @@ export default function MachinesList() {
                       const isSelected = selectedMachines.has(machine.id);
 
                       return (
-                        <tr key={machine.id} className={`hover:bg-slate-50 transition-colors ${isSelected ? "bg-blue-50" : ""}`}>
+                        <tr key={machine.id} className={`hover:bg-slate-50 transition-colors ${isSelected ? "bg-orange-50" : ""}`}>
                           <td className="px-6 py-4">
                             <button
                               onClick={() => toggleSelectMachine(machine.id)}
-                              className="text-slate-600 hover:text-blue-600 transition-colors"
+                              className="text-slate-600 transition-colors hover:text-[#f98440]"
                             >
-                              {isSelected ? <CheckSquare size={20} className="text-blue-600" /> : <Square size={20} />}
+                              {isSelected ? <CheckSquare size={20} className="text-[#f98440]" /> : <Square size={20} />}
                             </button>
                           </td>
                           <td className="px-6 py-4">
@@ -947,10 +947,10 @@ export default function MachinesList() {
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center justify-end gap-2">
-                              <button onClick={() => setSelectedMachine(machine)} className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+                              <button onClick={() => setSelectedMachine(machine)} className="rounded-lg p-2 text-slate-600 transition-all hover:bg-orange-50 hover:text-[#f98440]">
                                 <QrCode size={18} />
                               </button>
-                              <button onClick={() => navigate(`/admin/machine/${machine.id}`)} className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+                              <button onClick={() => navigate(`/admin/machine/${machine.id}`)} className="rounded-lg p-2 text-slate-600 transition-all hover:bg-orange-50 hover:text-[#f98440]">
                                 <Edit size={18} />
                               </button>
                               <button onClick={() => deleteMachine(machine.id)} className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
@@ -975,7 +975,7 @@ export default function MachinesList() {
                     <select
                       value={itemsPerPage}
                       onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                      className="border border-slate-300 rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="rounded-lg border border-slate-300 px-3 py-1 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                     >
                       <option value={5}>5</option>
                       <option value={10}>10</option>
@@ -1012,7 +1012,7 @@ export default function MachinesList() {
                             onClick={() => setCurrentPage(pageNum)}
                             disabled={loading}
                             className={`px-3 py-1 sm:px-2 sm:py-1 rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed ${currentPage === pageNum
-                                ? "bg-blue-600 text-white"
+                                ? "bg-[#f98440] text-white"
                                 : "text-slate-600 hover:bg-slate-100"
                               }`}
                           >

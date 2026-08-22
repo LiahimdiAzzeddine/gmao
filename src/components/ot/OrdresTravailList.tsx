@@ -172,7 +172,7 @@ export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false,
   if (loading && displayOrdres.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50/30 to-slate-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto ">
           <div className="space-y-6">
             <div className="h-40 bg-gradient-to-r from-orange-400/20 to-orange-500/20 rounded-2xl animate-pulse" />
             <div className="h-32 bg-white/50 rounded-xl animate-pulse" />
@@ -189,7 +189,7 @@ export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false,
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50/30 to-slate-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
           <div className="bg-white rounded-2xl shadow-lg border border-red-200 p-8 text-center">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <XCircle className="w-8 h-8 text-red-500" />
@@ -245,7 +245,7 @@ export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false,
           </div>
         </div>
       )}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto ">
         <div className="space-y-6">
           {deleteMessage && (
             <div className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold ${

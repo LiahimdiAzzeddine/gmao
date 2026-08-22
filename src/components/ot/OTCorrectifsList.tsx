@@ -262,10 +262,10 @@ export default function OTCorrectifsList() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="text-center">
           <div className="relative">
-            <Loader2 className="w-12 h-12 text-orange-500 animate-spin mx-auto mb-4" />
+            <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-[#f98440]" />
             <div className="absolute inset-0 w-12 h-12 border-4 border-orange-200 rounded-full mx-auto"></div>
           </div>
           <p className="text-slate-600 font-medium">Chargement des ordres de travail...</p>
@@ -276,26 +276,26 @@ export default function OTCorrectifsList() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8">
-      <div className="max-w-full mx-auto px-4">
+    <div className="min-h-screen bg-slate-50 py-2">
+      <div className="mx-auto max-w-full">
         {/* En-tête */}
-        <div className="bg-white rounded-xl shadow-lg border border-slate-200 mb-6">
-          <div className="border-b border-slate-200 bg-gradient-to-r from-orange-500 to-orange-600 px-8 py-6 rounded-t-xl">
+        <div className="mb-5 overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-100">
+          <div className="border-b border-orange-200 bg-[#f98440] px-5 py-4 md:px-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Wrench className="w-8 h-8 text-white" />
+                <Wrench className="h-7 w-7 text-white" />
                 <div>
-                  <h1 className="text-2xl font-bold text-white">
+                  <h1 className="text-xl font-black text-white md:text-2xl">
                     Ordres de Travail Correctifs
                   </h1>
-                  <p className="text-orange-100 text-sm mt-1">
+                  <p className="mt-1 text-xs font-medium text-white/80 sm:text-sm">
                     Gestion des interventions correctives • {filteredOrdres.length} OT{filteredOrdres.length > 1 ? 's' : ''}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => navigate('/admin/demande-maintenance/new')}
-                className="flex items-center gap-2 px-4 py-2 bg-white text-orange-600 rounded-lg hover:bg-orange-50 transition-colors font-medium shadow-md"
+                className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-bold text-[#f98440] shadow-sm transition-colors hover:bg-orange-50"
               >
                 <Plus className="w-5 h-5" />
                 Nouveau OT Correctif
@@ -304,7 +304,7 @@ export default function OTCorrectifsList() {
           </div>
 
           {/* Filtres et recherche */}
-          <div className="p-6 border-b border-slate-200">
+          <div className="border-b border-slate-200 p-4 md:p-5">
             <div className="flex flex-col md:flex-row gap-4">
               {/* Recherche */}
               <div className="flex-1">
@@ -315,7 +315,7 @@ export default function OTCorrectifsList() {
                     placeholder="Rechercher par machine, client, technicien, cause..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-4 focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                   />
                 </div>
               </div>
@@ -326,7 +326,7 @@ export default function OTCorrectifsList() {
                 <select
                   value={filterStatut}
                   onChange={(e) => setFilterStatut(e.target.value)}
-                  className="px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                 >
                   <option value="tous">Tous les statuts</option>
                   <option value="prévu">À faire</option>
@@ -342,7 +342,7 @@ export default function OTCorrectifsList() {
                 <select
                   value={filterClient}
                   onChange={(e) => setFilterClient(e.target.value)}
-                  className="min-w-52 px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+                  className="min-w-52 rounded-lg border border-slate-300 bg-white px-3 py-2.5 focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                 >
                   <option value="tous">Tous les clients</option>
                   {clients.map((client) => (
@@ -359,7 +359,7 @@ export default function OTCorrectifsList() {
                 <select
                   value={sortCreation}
                   onChange={(e) => setSortCreation(e.target.value as 'recent' | 'ancien')}
-                  className="min-w-48 px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+                  className="min-w-48 rounded-lg border border-slate-300 bg-white px-3 py-2.5 focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                   aria-label="Trier par date de création"
                 >
                   <option value="recent">Création : plus récents</option>
@@ -369,26 +369,26 @@ export default function OTCorrectifsList() {
             </div>
 
             {/* Statistiques */}
-            <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
-                <div className="text-2xl font-bold text-blue-600">
+            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="rounded-lg bg-[#f98440] p-3 text-white shadow-lg shadow-orange-200 md:p-4">
+                <div className="text-2xl font-black text-white">
                   {ordres.filter(o => o.statut === 'prévu').length}
                 </div>
-                <div className="text-sm text-blue-600 mt-1">À faire</div>
+                <div className="mt-1 text-xs font-bold text-white/80">À faire</div>
               </div>
-              <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-100">
+              <div className="rounded-lg border border-yellow-100 bg-yellow-50 p-3 md:p-4">
                 <div className="text-2xl font-bold text-yellow-600">
                   {ordres.filter(o => o.statut === 'en_cours').length}
                 </div>
                 <div className="text-sm text-yellow-600 mt-1">En cours</div>
               </div>
-              <div className="bg-green-50 rounded-lg p-4 border border-green-100">
+              <div className="rounded-lg border border-green-100 bg-green-50 p-3 md:p-4">
                 <div className="text-2xl font-bold text-green-600">
                   {ordres.filter(o => o.statut === 'terminé').length}
                 </div>
                 <div className="text-sm text-green-600 mt-1">Clôturés</div>
               </div>
-              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 md:p-4">
                 <div className="text-2xl font-bold text-slate-600">
                   {ordres.length}
                 </div>
@@ -400,7 +400,7 @@ export default function OTCorrectifsList() {
 
         {/* Table des ordres */}
         {filteredOrdres.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-12 text-center">
+          <div className="rounded-lg bg-white p-12 text-center shadow-sm ring-1 ring-slate-100">
             <Wrench className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-slate-700 mb-2">
               Aucun ordre de travail trouvé
@@ -484,14 +484,14 @@ export default function OTCorrectifsList() {
                   <div className="p-3 border-t border-slate-200 bg-slate-50 flex items-center gap-2">
                     <button
                       onClick={() => navigate(`/ordres-travail/${ordre.id}`)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-xs transition-colors"
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#f98440] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#e97435]"
                     >
                       <Eye size={14} />
                       <span>Voir</span>
                     </button>
                     <button
                       onClick={() => navigate(`/admin/demande-maintenance/${ordre.id}/edit`)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium text-xs transition-colors"
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-slate-700 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-slate-800"
                     >
                       <Edit size={14} />
                       <span>Modifier</span>
@@ -508,7 +508,7 @@ export default function OTCorrectifsList() {
             </div>
 
             {/* VUE DESKTOP - TABLE */}
-            <div className="hidden lg:block bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="hidden overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-100 lg:block">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[1200px]">
                   <thead className="bg-slate-50 border-b border-slate-200">
@@ -601,7 +601,7 @@ export default function OTCorrectifsList() {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => navigate(`/ordres-travail/${ordre.id}`)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              className="rounded-lg p-2 text-[#f98440] transition-colors hover:bg-orange-50"
                               title="Voir détails"
                             >
                               <Eye className="w-4 h-4" />
@@ -633,7 +633,7 @@ export default function OTCorrectifsList() {
 
         {/* Pagination */}
         {filteredOrdres.length > itemsPerPage && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mt-6">
+          <div className="mt-5 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               {/* Informations de pagination */}
               <div className="text-sm text-slate-600">
@@ -664,7 +664,7 @@ export default function OTCorrectifsList() {
                       disabled={typeof page === 'string'}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         page === currentPage
-                          ? 'bg-orange-500 text-white'
+                          ? 'bg-[#f98440] text-white'
                           : typeof page === 'string'
                           ? 'text-slate-400 cursor-default'
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -698,7 +698,7 @@ export default function OTCorrectifsList() {
                     setItemsPerPage(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="px-2 py-1 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  className="rounded-lg border border-slate-300 px-2 py-1 focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                 >
                   <option value={10}>10</option>
                   <option value={20}>20</option>

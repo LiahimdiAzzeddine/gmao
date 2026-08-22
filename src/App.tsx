@@ -314,7 +314,7 @@ function AppRoutes() {
         {/* <Route path="/admin/demande/new/:machine_id" element={<AdminRoute><DemandeInterventionNew /></AdminRoute>} /> */}
         <Route path="/admin/demandes" element={<AdminRoute><AdminLayout title="Demandes" showBack={true}><DemandesList /></AdminLayout></AdminRoute>} />
         <Route path="/admin/demandes/edit/:id" element={<AdminRoute><AdminLayout title="Modifier une demande d'intervention" showBack={true}><DemandeInterventionEdit /></AdminLayout></AdminRoute>} />
-        <Route path="/admin/demandes/:id" element={<AdminLayout title="Consulter une demande d'intervention" showBack={true}><DemandeInterventionView /></AdminLayout>} />
+        <Route path="/admin/demandes/:id" element={<AdminRoute><AdminLayout title="Consulter une demande d'intervention" showBack={true}><DemandeInterventionView /></AdminLayout></AdminRoute>} />
         
         {/* Route principale - Dashboard selon le rôle */}
         <Route

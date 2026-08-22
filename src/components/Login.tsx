@@ -65,7 +65,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-orange-100 to-orange-200 flex items-center justify-center p-4">
-  <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+  <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
 
     {/* Header avec gradient */}
     <div className="bg-gradient-to-r from-[#f15c00] to-orange-600 p-8 text-white">

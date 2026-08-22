@@ -29,35 +29,39 @@ export default function DemandeModal({ machine, onClose, onSuccess }: DemandeMod
     try {
       setSubmitting(true);
 
-      // Mapper l'urgence vers la priorité
-      const prioriteMap = {
-        'faible': 'faible',
-        'moyenne': 'moyenne',
-        'élevée': 'haute'
-      };
+      const { data: existingRequest, error: existingError } = await supabase
+        .from('demande_intervention')
+        .select('id')
+        .eq('machine_id', machine.id)
+        .eq('type_intervention', 'corrective')
+        .eq('statut', 'en attente')
+        .maybeSingle();
 
-      // Créer directement un ordre de travail correctif
-      const { data: otData, error: otError } = await supabase
-        .from('ordres_travail')
+      if (existingError) throw existingError;
+      if (existingRequest) throw new Error('Une demande est déjà en attente pour cette machine.');
+
+      const description = [
+        demandeForm.description,
+        demandeForm.cause ? `Cause signalée : ${demandeForm.cause}` : '',
+        `Type demandé : ${demandeForm.type_intervention}`,
+      ].filter(Boolean).join('\n');
+
+      const { error: demandeError } = await supabase
+        .from('demande_intervention')
         .insert({
           machine_id: machine.id,
-          type: 'correctif',
-          date_programmee: new Date().toISOString(),
-          statut: 'prévu',
-          priorite: prioriteMap[demandeForm.urgence],
-          cause: demandeForm.cause || null,
-          type_intervention: demandeForm.type_intervention,
-          observations: `${demandeForm.label ? `[${demandeForm.label}] ` : ''}${demandeForm.description}\n\nUrgence: ${demandeForm.urgence}\nCause: ${demandeForm.cause || 'Non spécifiée'}\nType: ${demandeForm.type_intervention}\nSignalé par: ${profile.nom || profile.email}`,
-        })
-        .select()
-        .single();
+          type_intervention: 'corrective',
+          urgence: demandeForm.urgence,
+          label: demandeForm.label || 'Problème signalé',
+          description,
+          statut: 'en attente',
+          created_by: profile.id,
+          date_demande: new Date().toISOString(),
+        });
 
-      if (otError) {
-        console.error('Erreur création OT:', otError);
-        throw otError;
-      }
+      if (demandeError) throw demandeError;
 
-      setSuccessMessage(`Problème signalé avec succès ! Un ordre de travail correctif (OT #${otData?.numot || 'N/A'}) a été créé.`);
+      setSuccessMessage('Demande envoyée avec succès. Elle sera examinée par un administrateur.');
       setDemandeForm({ 
         description: '', 
         urgence: 'moyenne', 
@@ -73,8 +77,8 @@ export default function DemandeModal({ machine, onClose, onSuccess }: DemandeMod
         onSuccess();
       }, 3000);
     } catch (err) {
-      console.error('Erreur création ordre de travail:', err);
-      alert('Erreur lors de la création de l\'ordre de travail');
+      console.error('Erreur création demande:', err);
+      alert(err instanceof Error ? err.message : 'Erreur lors de l’envoi de la demande');
     } finally {
       setSubmitting(false);
     }

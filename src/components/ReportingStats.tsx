@@ -138,9 +138,9 @@ export default function ReportingStats() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="text-center">
-          <RefreshCw className="animate-spin h-12 w-12 text-purple-600 mx-auto mb-4" />
+          <RefreshCw className="mx-auto mb-4 h-12 w-12 animate-spin text-[#f98440]" />
           <p className="text-slate-600">Chargement des statistiques...</p>
         </div>
       </div>
@@ -148,21 +148,21 @@ export default function ReportingStats() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-slate-50">
+      <div className="mx-auto max-w-7xl py-2">
         {/* Header */}
-        <div className="mb-8">
-          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-8 text-white shadow-xl">
+        <div className="mb-5">
+          <div className="rounded-lg bg-[#f98440] p-5 text-white shadow-lg shadow-orange-200 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-4xl font-bold mb-3">Reporting & Statistiques</h1>
-                <p className="text-purple-100 text-lg">
+                <h1 className="text-xl font-black md:text-2xl">Reporting & Statistiques</h1>
+                <p className="mt-1 text-sm font-medium text-white/80 md:text-base">
                   Analyses, rapports et exports de données pour une gestion optimale
                 </p>
               </div>
               <div className="hidden md:block">
-                <div className="bg-white bg-opacity-20 p-4 rounded-xl">
-                  <BarChart3 size={64} className="text-white opacity-80" />
+                <div className="rounded-lg bg-black/10 p-3">
+                  <BarChart3 size={48} className="text-white opacity-90" />
                 </div>
               </div>
             </div>
@@ -170,21 +170,21 @@ export default function ReportingStats() {
         </div>
 
         {/* Statistiques rapides */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
-          <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-blue-500">
+        <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+          <div className="rounded-lg bg-[#f98440] p-3 text-white shadow-lg shadow-orange-200 md:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 text-xs font-medium mb-0.5">Machines</p>
-                <p className="text-xl font-bold text-slate-800">{stats.totalMachines}</p>
-                <p className="text-xs text-slate-500">{stats.machinesActives} actives</p>
+                <p className="mb-0.5 text-xs font-bold text-white/80">Machines</p>
+                <p className="text-2xl font-black text-white">{stats.totalMachines}</p>
+                <p className="text-xs text-white/70">{stats.machinesActives} actives</p>
               </div>
-              <div className="bg-blue-50 p-2 rounded-lg">
-                <Activity className="w-5 h-5 text-blue-600" />
+              <div className="rounded-lg bg-black/10 p-2">
+                <Activity className="h-5 w-5 text-white" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-emerald-500">
+          <div className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-slate-100 md:p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-600 text-xs font-medium mb-0.5">Clients</p>
@@ -197,58 +197,58 @@ export default function ReportingStats() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-purple-500">
+          <div className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-slate-100 md:p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-600 text-xs font-medium mb-0.5">Interventions</p>
                 <p className="text-xl font-bold text-slate-800">{stats.totalInterventions}</p>
                 <p className="text-xs text-slate-500">{stats.interventionsValidees} validées</p>
               </div>
-              <div className="bg-purple-50 p-2 rounded-lg">
-                <Target className="w-5 h-5 text-purple-600" />
+              <div className="rounded-lg bg-orange-50 p-2">
+                <Target className="h-5 w-5 text-[#f98440]" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-orange-500">
+          <div className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-slate-100 md:p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-600 text-xs font-medium mb-0.5">Plans Actifs</p>
                 <p className="text-xl font-bold text-slate-800">{stats.plansActifs}</p>
                 <p className="text-xs text-slate-500">Maintenance préventive</p>
               </div>
-              <div className="bg-orange-50 p-2 rounded-lg">
-                <Calendar className="w-5 h-5 text-orange-600" />
+              <div className="rounded-lg bg-orange-50 p-2">
+                <Calendar className="h-5 w-5 text-[#f98440]" />
               </div>
             </div>
           </div>
         </div>
 
         {/* Rapports et Analyses */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <Activity className="text-indigo-600" size={28} />
+        <div className="mb-6">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-black text-slate-900">
+            <Activity className="text-[#f98440]" size={22} />
             Rapports et Analyses
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             {maintenanceReports.map((report, index) => {
               const colorStyles: Record<string, string> = {
-                indigo: 'from-indigo-500 to-indigo-600',
-                rose: 'from-rose-500 to-rose-600',
-                amber: 'from-amber-500 to-amber-600',
-                blue: 'from-blue-500 to-blue-600',
-                emerald: 'from-emerald-500 to-emerald-600',
-                purple: 'from-purple-500 to-purple-600'
+                indigo: 'from-[#d95f24] to-[#f98440]',
+                rose: 'from-[#e86d2f] to-[#ff9d63]',
+                amber: 'from-[#c94f18] to-[#e97435]',
+                blue: 'from-[#ef7b3f] to-[#ffad7d]',
+                emerald: 'from-[#d95f24] to-[#f58b4d]',
+                purple: 'from-[#b94412] to-[#dc642b]'
               };
 
               return (
                 <button
                   key={index}
                   onClick={() => navigate(report.route)}
-                  className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 text-left"
+                  className="overflow-hidden rounded-lg border border-slate-200 bg-white text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  <div className={`bg-gradient-to-br ${colorStyles[report.color]} p-5 text-white`}>
+                  <div className={`bg-gradient-to-l ${colorStyles[report.color]} p-4 text-white`}>
                     <div className="flex items-center justify-between mb-3">
                       <div className="opacity-80">
                         {report.icon}
@@ -256,7 +256,7 @@ export default function ReportingStats() {
                       <TrendingUp size={18} className="opacity-60" />
                     </div>
                     {report.count !== undefined && (
-                      <div className="text-3xl font-bold mb-1">{report.count}</div>
+                      <div className="mb-1 text-2xl font-black">{report.count}</div>
                     )}
                     <div className="text-sm opacity-90 font-medium mb-1">{report.title}</div>
                     {report.subtitle && (
@@ -273,7 +273,7 @@ export default function ReportingStats() {
         </div>
 
         {/* Actions rapides */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100 md:p-5">
           <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
             <RefreshCw className="text-slate-600" size={22} />
             Actions Rapides
@@ -281,10 +281,10 @@ export default function ReportingStats() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button
               onClick={() => navigate('/admin/planification-clients')}
-              className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg hover:from-orange-100 hover:to-amber-100 transition-all"
+              className="flex items-center justify-between rounded-lg bg-orange-50 p-3 transition-all hover:bg-orange-100"
             >
               <div className="flex items-center gap-3">
-                <Calendar className="text-orange-600" size={20} />
+                <Calendar className="text-[#f98440]" size={20} />
                 <span className="font-medium text-slate-700">Planification Clients</span>
               </div>
               <ArrowRight className="text-slate-400" size={18} />
@@ -292,10 +292,10 @@ export default function ReportingStats() {
 
             <button
               onClick={() => navigate('/admin/plans-maintenance/new')}
-              className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg hover:from-purple-100 hover:to-indigo-100 transition-all"
+              className="flex items-center justify-between rounded-lg bg-orange-50 p-3 transition-all hover:bg-orange-100"
             >
               <div className="flex items-center gap-3">
-                <Calendar className="text-purple-600" size={20} />
+                <Calendar className="text-[#f98440]" size={20} />
                 <span className="font-medium text-slate-700">Nouveau Plan Maintenance</span>
               </div>
               <ArrowRight className="text-slate-400" size={18} />

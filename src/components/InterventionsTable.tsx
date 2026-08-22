@@ -1222,9 +1222,9 @@ const InterventionsTable: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 flex items-center justify-center">
+            <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
                 <div className="text-center">
-                    <Loader2 size={48} className="mx-auto text-blue-600 animate-spin mb-4" />
+                    <Loader2 size={48} className="mx-auto mb-4 animate-spin text-[#f98440]" />
                     <p className="text-slate-600 text-lg">Chargement des interventions...</p>
                 </div>
             </div>
@@ -1233,8 +1233,8 @@ const InterventionsTable: React.FC = () => {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 flex items-center justify-center">
-                <div className="bg-red-50 border border-red-200 rounded-xl p-6 max-w-md">
+            <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+                <div className="max-w-md rounded-lg border border-red-200 bg-red-50 p-6">
                     <p className="text-red-800 font-medium mb-2">Erreur de chargement</p>
                     <p className="text-red-600 text-sm">{error}</p>
                 </div>
@@ -1243,14 +1243,14 @@ const InterventionsTable: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-3 sm:p-6">
+        <div className="min-h-screen bg-slate-50 py-2">
             {/* Modal de sélection de client */}
             {showClientModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-                        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
-                            <h2 className="text-2xl font-bold">Sélectionner un client</h2>
-                            <p className="text-blue-100 text-sm mt-1">Choisissez le client et appliquez des filtres optionnels</p>
+                    <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-2xl">
+                        <div className="bg-[#f98440] p-5 text-white">
+                            <h2 className="text-xl font-black">Sélectionner un client</h2>
+                            <p className="mt-1 text-sm text-white/80">Choisissez le client et appliquez des filtres optionnels</p>
                         </div>
                         
                         <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
@@ -1269,7 +1269,7 @@ const InterventionsTable: React.FC = () => {
                                         <select
                                             value={preFilterType}
                                             onChange={(e) => setPreFilterType(e.target.value)}
-                                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                                         >
                                             <option value="all">Tous les types</option>
                                             <option value="préventif">Préventif</option>
@@ -1285,7 +1285,7 @@ const InterventionsTable: React.FC = () => {
                                         <select
                                             value={preFilterTechnicien}
                                             onChange={(e) => setPreFilterTechnicien(e.target.value)}
-                                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                                         >
                                             <option value="all">Tous les techniciens</option>
                                             {techniciens.map(tech => (
@@ -1302,7 +1302,7 @@ const InterventionsTable: React.FC = () => {
                                         <select
                                             value={preFilterStatutOT}
                                             onChange={(e) => setPreFilterStatutOT(e.target.value)}
-                                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                                         >
                                             <option value="all">Tous</option>
                                             <option value="prévu">Prévu</option>
@@ -1318,7 +1318,7 @@ const InterventionsTable: React.FC = () => {
                             {/* Liste des clients */}
                             {loadingClients ? (
                                 <div className="text-center py-8">
-                                    <Loader2 size={32} className="mx-auto text-blue-600 animate-spin mb-2" />
+                                    <Loader2 size={32} className="mx-auto mb-2 animate-spin text-[#f98440]" />
                                     <p className="text-slate-600">Chargement des clients...</p>
                                 </div>
                             ) : clients.length === 0 ? (
@@ -1332,7 +1332,7 @@ const InterventionsTable: React.FC = () => {
                                             Sélectionner un client ({clients.length})
                                         </h3>
                                         {selectedClient && (
-                                            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm text-blue-700">
+                                            <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-sm text-[#f98440]">
                                                 <span className="font-medium">Client actuel:</span>
                                                 <span>{selectedClient.raison_sociale || selectedClient.prenom}</span>
                                             </div>
@@ -1343,14 +1343,14 @@ const InterventionsTable: React.FC = () => {
                                             <button
                                                 key={client.id}
                                                 onClick={() => handleClientSelection(client.id)}
-                                                className={`p-4 rounded-lg transition-all text-left group ${client.id === selectedClientId ? 'border-2 border-blue-500 bg-blue-50 shadow-sm' : 'border-2 border-slate-200 hover:border-blue-500 hover:bg-blue-50'}`}
+                                                className={`group rounded-lg p-3 text-left transition-all ${client.id === selectedClientId ? 'border-2 border-[#f98440] bg-orange-50 shadow-sm' : 'border-2 border-slate-200 hover:border-[#f98440]/60 hover:bg-orange-50'}`}
                                             >
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                                                        <User size={20} className="text-blue-600" />
+                                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 transition-colors group-hover:bg-orange-200">
+                                                        <User size={20} className="text-[#f98440]" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="font-semibold text-slate-800 group-hover:text-blue-700 truncate">
+                                                        <p className="truncate font-semibold text-slate-800 group-hover:text-[#f98440]">
                                                             {client.raison_sociale || client.prenom}
                                                         </p>
                                                     </div>
@@ -1367,16 +1367,16 @@ const InterventionsTable: React.FC = () => {
 
             <div className="mx-auto">
                 {/* Header */}
-                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
+                <div className="mb-5 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100 md:p-5">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1 sm:mb-2">Interventions</h1>
-                            <p className="text-sm sm:text-base text-slate-600">Gestion et suivi des interventions techniques</p>
+                            <h1 className="text-xl font-black text-slate-900 sm:text-2xl">Interventions</h1>
+                            <p className="mt-1 text-xs font-medium text-slate-500 sm:text-sm">Gestion et suivi des interventions techniques</p>
                         </div>
                         {selectedClientId && (
                             <button
                                 onClick={() => setShowClientModal(true)}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors text-sm font-medium"
+                                className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-medium text-[#f98440] transition-colors hover:bg-orange-100"
                             >
                                 <User size={18} />
                                 Changer de client
@@ -1386,7 +1386,7 @@ const InterventionsTable: React.FC = () => {
                 </div>
 
                 {/* Barre de recherche et compteur */}
-                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
+                <div className="mb-5 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100 md:p-5">
                     <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center">
                         {/* Search */}
                         <div className="flex-1 w-full relative">
@@ -1396,7 +1396,7 @@ const InterventionsTable: React.FC = () => {
                                 placeholder="Rechercher..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-4 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                             />
                         </div>
 
@@ -1523,7 +1523,7 @@ const InterventionsTable: React.FC = () => {
                                                     type="checkbox"
                                                     checked={intervention.valide}
                                                     onChange={(e) => handleValidationClick(intervention, e.target.checked ? 'validate' : 'invalidate')}
-                                                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                                                    className="h-4 w-4 rounded border-slate-300 text-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                                                 />
                                                 <span className="text-xs text-slate-600">
                                                     {intervention.valide ? (
@@ -1556,7 +1556,7 @@ const InterventionsTable: React.FC = () => {
                                 <div className="p-3 border-t border-slate-200 bg-slate-50 flex items-center gap-2">
                                     <button
                                         onClick={() => navigate(`/admin/intervention/${intervention.id}`)}
-                                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-xs transition-colors"
+                                        className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#f98440] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#e97435]"
                                     >
                                         <Eye size={14} />
                                         <span>Voir</span>
@@ -1594,7 +1594,7 @@ const InterventionsTable: React.FC = () => {
                 </div>
 
                 {/* VUE DESKTOP - TABLE */}
-                <div className="hidden lg:block bg-white rounded-xl shadow-sm overflow-hidden">
+                <div className="hidden overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-100 lg:block">
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-slate-50 border-b border-slate-200">
@@ -1742,7 +1742,7 @@ const InterventionsTable: React.FC = () => {
                                                     type="checkbox"
                                                     checked={intervention.valide}
                                                     onChange={(e) => handleValidationClick(intervention, e.target.checked ? 'validate' : 'invalidate')}
-                                                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                                                    className="h-4 w-4 rounded border-slate-300 text-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                                                 />
                                                 <span className="text-xs text-slate-500">
                                                     {intervention.valide ? 'Validé' : 'En attente'}
@@ -1761,7 +1761,7 @@ const InterventionsTable: React.FC = () => {
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     onClick={() => navigate(`/admin/intervention/${intervention.id}`)}
-                                                    className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+                                                    className="rounded-lg border border-orange-200 bg-orange-50 p-2 text-[#f98440] transition-colors hover:bg-orange-100"
                                                     title="Voir détails"
                                                 >
                                                     <Eye size={18} />
@@ -1805,7 +1805,7 @@ const InterventionsTable: React.FC = () => {
 
                 {/* Pagination */}
                 {filteredInterventions.length > 0 && (
-                    <div className="bg-white rounded-xl shadow-sm p-3 sm:p-4 mt-4 sm:mt-6">
+                    <div className="mt-5 rounded-lg bg-white p-3 shadow-sm ring-1 ring-slate-100 sm:p-4">
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
                             {/* Items per page */}
                             <div className="flex items-center gap-2 text-xs sm:text-sm">
@@ -1816,7 +1816,7 @@ const InterventionsTable: React.FC = () => {
                                         setItemsPerPage(Number(e.target.value));
                                         setCurrentPage(1);
                                     }}
-                                    className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="rounded-lg border border-slate-300 px-2 py-1 text-xs focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30 sm:px-3 sm:py-1.5 sm:text-sm"
                                 >
                                     <option value={5}>5</option>
                                     <option value={10}>10</option>
@@ -1855,7 +1855,7 @@ const InterventionsTable: React.FC = () => {
                                                 onClick={() => goToPage(page as number)}
                                                 className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                                                     currentPage === page
-                                                        ? 'bg-blue-600 text-white'
+                                                        ? 'bg-[#f98440] text-white'
                                                         : 'text-slate-600 hover:bg-slate-100'
                                                 }`}
                                             >
