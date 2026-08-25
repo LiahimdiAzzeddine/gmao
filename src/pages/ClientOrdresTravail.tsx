@@ -20,6 +20,7 @@ import MainHeader from '../components/MainHeader';
 import EmptyState from '../components/Ui/EmptyState';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import ClientOtPdfDownloadButton from '../components/ClientOtPdfDownloadButton';
 
 type ClientOT = {
   id: string;
@@ -272,12 +273,15 @@ export default function ClientOrdresTravail() {
                 Consultez les OT de toutes vos machines dans une seule table.
               </p>
             </div>
-            <button
-              onClick={() => navigate('/')}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 font-semibold transition-colors"
-            >
-              Tableau de bord
-            </button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <ClientOtPdfDownloadButton />
+              <button
+                onClick={() => navigate('/')}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 font-semibold transition-colors"
+              >
+                Tableau de bord
+              </button>
+            </div>
           </div>
         </div>
 

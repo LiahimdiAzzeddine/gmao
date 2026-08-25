@@ -26,6 +26,7 @@ import ClientInterventionValidationModal from '../components/ClientInterventionV
 import ClientLayout from '../components/ClientLayout';
 import { generateOTPdfReact } from '../utils/generateOTPdfReact';
 import { generateOTCPdfReact } from '../utils/generateOTCPdfReact';
+import { generateOTPdf } from '../utils/generateOTPdf';
 import type { OrdreTravailDetail } from '../types/ot';
 
 type ClientIntervention = {
@@ -71,6 +72,7 @@ type ClientIntervention = {
 
 type ValidationFilter = 'tous' | 'valide' | 'non_valide';
 type PdfTypeFilter = 'tous' | 'preventif' | 'correctif';
+type PdfTemplate = 'modern' | 'classic';
 
 type PdfFilters = {
   dateDebut: string;
@@ -179,6 +181,7 @@ export default function ClientInterventions() {
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [pdfProgress, setPdfProgress] = useState({ current: 0, total: 0 });
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfTemplate, setPdfTemplate] = useState<PdfTemplate>('modern');
   const [pdfOrdres, setPdfOrdres] = useState<ClientOTSummary[]>([]);
   const [pdfFilters, setPdfFilters] = useState<PdfFilters>({
     dateDebut: defaultDateDebut,
@@ -520,8 +523,11 @@ export default function ClientInterventions() {
           interventions: matchingInterventions,
         };
 
-        const pdfBlob = normalizeOtType(ordre.type) === 'preventif'
-          ? await generateOTPdfReact(ordreForPdf, { download: false })
+        const isPreventive = normalizeOtType(ordre.type) === 'preventif';
+        const pdfBlob = isPreventive
+          ? pdfTemplate === 'classic'
+            ? await generateOTPdf(ordreForPdf, { download: false })
+            : await generateOTPdfReact(ordreForPdf, { download: false })
           : await generateOTCPdfReact(ordreForPdf, { download: false });
 
         zip.file(buildPdfFileName(ordre, index), pdfBlob);
@@ -756,7 +762,7 @@ export default function ClientInterventions() {
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Télécharger les PDF OT</h3>
                 <p className="text-sm text-slate-600">
-                  Filtrer les interventions associées avant génération.
+                  Choisir le template et filtrer les interventions avant génération.
                 </p>
               </div>
               <button
@@ -770,6 +776,29 @@ export default function ClientInterventions() {
             </div>
 
             <div className="space-y-4 px-5 py-4">
+              <fieldset disabled={generatingPdf}>
+                <legend className="mb-2 text-sm font-semibold text-slate-700">Template PDF</legend>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setPdfTemplate('modern')}
+                    className={`rounded-lg border-2 p-3 text-left transition-colors ${pdfTemplate === 'modern' ? 'border-[#ff6b57] bg-[#ff6b57]/10 text-[#d93c2b]' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`}
+                  >
+                    <span className="block text-sm font-bold">Template moderne</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPdfTemplate('classic')}
+                    className={`rounded-lg border-2 p-3 text-left transition-colors ${pdfTemplate === 'classic' ? 'border-[#ff6b57] bg-[#ff6b57]/10 text-[#d93c2b]' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`}
+                  >
+                    <span className="block text-sm font-bold">Template classique</span>
+                  </button>
+                </div>
+                {pdfFilters.type !== 'preventif' && (
+                  <p className="mt-2 text-xs text-slate-500">Les OT correctifs conservent leur template correctif adapté.</p>
+                )}
+              </fieldset>
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="space-y-1">
                   <span className="text-sm font-semibold text-slate-700">Date début</span>

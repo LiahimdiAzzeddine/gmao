@@ -5,7 +5,9 @@ import { OrdreTravailDetail } from '../types/ot';
 // Styles professionnels et bien organisés
 const styles = StyleSheet.create({
   page: {
-    padding: 25,
+    paddingTop: 24,
+    paddingHorizontal: 28,
+    paddingBottom: 46,
     fontSize: 9,
     fontFamily: 'Helvetica',
     backgroundColor: '#ffffff',
@@ -16,29 +18,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 15,
+    marginBottom: 12,
+    paddingBottom: 10,
     borderBottom: '2pt solid #1e40af',
   },
   logo: {
-    width: 110,
-    height: 40,
+    width: 100,
+    height: 36,
+    objectFit: 'contain',
   },
   qrCode: {
-    width: 70,
-    height: 70,
+    width: 54,
+    height: 54,
     border: '1pt solid #cbd5e1',
   },
   
   // ========== TITRE ==========
   titleContainer: {
     backgroundColor: '#1e40af',
-    padding: 12,
-    marginBottom: 15,
+    padding: 9,
+    marginBottom: 12,
     borderRadius: 4,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#ffffff',
@@ -53,13 +56,13 @@ const styles = StyleSheet.create({
   
   // ========== INFORMATIONS GÉNÉRALES ==========
   infoSection: {
-    marginBottom: 15,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 11,
     fontWeight: 'bold',
     color: '#1e40af',
-    marginBottom: 8,
+    marginBottom: 6,
     paddingBottom: 4,
     borderBottom: '1pt solid #cbd5e1',
   },
@@ -89,7 +92,7 @@ const styles = StyleSheet.create({
   // ========== AVERTISSEMENT SÉCURITÉ ==========
   securityWarning: {
     backgroundColor: '#fef3c7',
-    padding: 10,
+    padding: 8,
     marginVertical: 0,
     borderLeft: '4pt solid #f59e0b',
     borderRadius: 3,
@@ -103,12 +106,12 @@ const styles = StyleSheet.create({
   
   // ========== TABLEAU DES ÉTAPES ==========
   tableContainer: {
-    marginBottom: 15,
+    marginBottom: 12,
   },
   tableHeader: {
     backgroundColor: '#1e40af',
     flexDirection: 'row',
-    padding: 8,
+    padding: 6,
     borderTopLeftRadius: 3,
     borderTopRightRadius: 3,
   },
@@ -122,8 +125,8 @@ const styles = StyleSheet.create({
     borderBottom: '0.5pt solid #e2e8f0',
     borderLeft: '0.5pt solid #e2e8f0',
     borderRight: '0.5pt solid #e2e8f0',
-    padding: 6,
-    minHeight: 25,
+    padding: 5,
+    minHeight: 22,
     alignItems: 'center',
   },
   tableRowAlt: {
@@ -144,8 +147,8 @@ const styles = StyleSheet.create({
   // ========== OBSERVATIONS ==========
   observationsBox: {
     backgroundColor: '#fffbeb',
-    padding: 10,
-    marginVertical: 12,
+    padding: 8,
+    marginVertical: 8,
     border: '1pt solid #fbbf24',
     borderRadius: 3,
   },
@@ -163,8 +166,8 @@ const styles = StyleSheet.create({
   
   // ========== COMPTE-RENDU INTERVENTION ==========
   interventionSection: {
-    marginTop: 20,
-    padding: 12,
+    marginTop: 12,
+    padding: 10,
     backgroundColor: '#f0f9ff',
     border: '1pt solid #3b82f6',
     borderRadius: 4,
@@ -294,8 +297,8 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   image: {
-    height: 260,
-    maxWidth: 760,
+    height: 120,
+    maxWidth: 240,
     objectFit: 'contain',
     borderRadius: 3,
   },
@@ -340,8 +343,8 @@ const styles = StyleSheet.create({
   
   // ========== SIGNATURES ==========
   signaturesContainer: {
-    marginTop: 25,
-    paddingTop: 15,
+    marginTop: 16,
+    paddingTop: 10,
     borderTop: '1pt solid #cbd5e1',
   },
   signatureRow: {
@@ -351,7 +354,7 @@ const styles = StyleSheet.create({
   },
   signatureBox: {
     width: '48%',
-    padding: 10,
+    padding: 8,
     backgroundColor: '#f8fafc',
     border: '1pt solid #e2e8f0',
     borderRadius: 3,
@@ -364,7 +367,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   signatureRect: {
-    height: 70,
+    height: 56,
     backgroundColor: '#ffffff',
     border: '1pt dashed #cbd5e1',
     marginBottom: 6,
@@ -402,8 +405,8 @@ const styles = StyleSheet.create({
   footer: {
     position: 'absolute',
     bottom: 15,
-    left: 25,
-    right: 25,
+    left: 28,
+    right: 28,
     paddingTop: 8,
     borderTop: '0.5pt solid #e2e8f0',
   },
@@ -435,41 +438,6 @@ const OTPdfDocument: React.FC<OTPdfDocumentProps> = ({ ordre, qrCodeDataUrl }) =
   const client = machine?.client;
   const interventionValidee = ordre.interventions?.find(i => i.valide === true);
   const interventionPourSignature = interventionValidee || ordre.interventions?.[0];
-
-  // Debug: vérifier les données reçues
-  console.log('=== DEBUG React PDF - DÉTAILS ===');
-  console.log('Ordre complet:', ordre);
-  console.log('Interventions:', ordre.interventions);
-  
-  if (ordre.interventions && ordre.interventions.length > 0) {
-    ordre.interventions.forEach((interv, idx) => {
-      console.log(`Intervention ${idx}:`, {
-        id: interv.id,
-        valide: interv.valide,
-        technicien: interv.technicien?.nom,
-        etapes_checkees: interv.etapes_gamme_checkees,
-        type_etapes: typeof interv.etapes_gamme_checkees,
-        is_array: Array.isArray(interv.etapes_gamme_checkees),
-        length: Array.isArray(interv.etapes_gamme_checkees) ? interv.etapes_gamme_checkees.length : 'N/A'
-      });
-    });
-  }
-
-  if (interventionValidee) {
-    console.log('Intervention validée:', {
-      id: interventionValidee.id,
-      technicien: interventionValidee.technicien?.nom,
-      date_debut: interventionValidee.date_debut,
-      date_fin: interventionValidee.date_fin,
-      etapes_gamme_checkees: interventionValidee.etapes_gamme_checkees,
-      type: typeof interventionValidee.etapes_gamme_checkees,
-      isArray: Array.isArray(interventionValidee.etapes_gamme_checkees),
-      length: Array.isArray(interventionValidee.etapes_gamme_checkees) ? interventionValidee.etapes_gamme_checkees.length : 'N/A',
-      sample: Array.isArray(interventionValidee.etapes_gamme_checkees) ? interventionValidee.etapes_gamme_checkees.slice(0, 3) : 'N/A'
-    });
-  } else {
-    console.log('❌ Aucune intervention validée trouvée');
-  }
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('fr-FR');
@@ -639,7 +607,7 @@ const OTPdfDocument: React.FC<OTPdfDocumentProps> = ({ ordre, qrCodeDataUrl }) =
 
         {/* ========== AVERTISSEMENT SÉCURITÉ ========== */}
         <View style={styles.securityWarning}>
-          <Text style={styles.securityText}>⚠ RESPECTER LES CONSIGNES DE SÉCURITÉ</Text>
+          <Text style={styles.securityText}>RESPECTER LES CONSIGNES DE SÉCURITÉ</Text>
         </View>
 
         {/* ========== LÉGENDE DES STATUTS ========== */}
@@ -713,7 +681,7 @@ const OTPdfDocument: React.FC<OTPdfDocumentProps> = ({ ordre, qrCodeDataUrl }) =
           </View>
 
         {/* Lignes du tableau */}
-        {gamme?.etapes_gamme?.sort((a, b) => a.ordre - b.ordre).map((etape, index) => {
+        {[...(gamme?.etapes_gamme || [])].sort((a, b) => a.ordre - b.ordre).map((etape, index) => {
           // Vérifier si l'étape est cochée et récupérer son statut
           let isChecked = false;
           let etapeCheckee: any = null;
@@ -894,22 +862,10 @@ const OTPdfDocument: React.FC<OTPdfDocumentProps> = ({ ordre, qrCodeDataUrl }) =
         </View>
 
         {/* Observations */}
-        {(ordre.observations || interventionValidee?.commentaire) && (
+        {ordre.observations && (
           <View style={styles.observationsBox}>
             <Text style={styles.observationsTitle}>OBSERVATIONS:</Text>
-            {ordre.observations && (
-              <Text style={styles.observationsText}>{ordre.observations}</Text>
-            )}
-            {interventionValidee?.commentaire && (
-              <>
-                {ordre.observations && (
-                  <View style={{ height: 3 }} />
-                )}
-                <Text style={[styles.observationsText, { fontStyle: 'italic', color: '#78716c' }]}>
-                  {interventionValidee.commentaire}
-                </Text>
-              </>
-            )}
+            <Text style={styles.observationsText}>{ordre.observations}</Text>
           </View>
         )}
 
@@ -1112,7 +1068,7 @@ const OTPdfDocument: React.FC<OTPdfDocumentProps> = ({ ordre, qrCodeDataUrl }) =
         )}
 
         {/* ========== SIGNATURES ========== */}
-        <View style={styles.signaturesContainer}>
+        <View style={styles.signaturesContainer} wrap={false}>
           <View style={styles.signatureRow}>
             <View style={styles.signatureBox}>
               <Text style={styles.signatureTitle}>SIGNATURE ADMIN</Text>
@@ -1148,7 +1104,6 @@ const OTPdfDocument: React.FC<OTPdfDocumentProps> = ({ ordre, qrCodeDataUrl }) =
                       <Line x1="11" y1="17" x2="19" y2="8" stroke="#047857" strokeWidth="3" strokeLinecap="round" />
                     </Svg>
                     <Text style={styles.signatureValidationText}>Validé par le client</Text>
-                    <Text style={styles.signatureValidationDate}>{formatDate(new Date().toISOString())}</Text>
                   </>
                 ) : (
                   <Text style={styles.signaturePendingText}>En attente de validation client</Text>
@@ -1156,7 +1111,7 @@ const OTPdfDocument: React.FC<OTPdfDocumentProps> = ({ ordre, qrCodeDataUrl }) =
               </View>
               <Text style={styles.signatureDate}>
                 {interventionPourSignature?.client_valide
-                  ? `Date : ${formatDate(new Date().toISOString())}`
+                  ? 'Validation client enregistrée'
                   : 'Date : _______________'}
               </Text>
             </View>
@@ -1164,10 +1119,13 @@ const OTPdfDocument: React.FC<OTPdfDocumentProps> = ({ ordre, qrCodeDataUrl }) =
         </View>
 
         {/* ========== FOOTER ========== */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Document généré le {new Date().toLocaleDateString('fr-FR')} à {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-          </Text>
+        <View style={styles.footer} fixed>
+          <Text
+            style={styles.footerText}
+            render={({ pageNumber, totalPages }) =>
+              `Document généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}  |  Page ${pageNumber} / ${totalPages}`
+            }
+          />
         </View>
       </Page>
     </Document>
