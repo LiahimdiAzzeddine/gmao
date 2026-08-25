@@ -109,6 +109,24 @@ export async function generateOTPdf(ordre: OrdreTravailDetail) {
   const poste_technique = machine?.poste_technique
   const client = machine?.client
 
+  let qrCodeDataUrl: string | null = null
+  if (machine?.id) {
+    try {
+      const QRCode = await import('qrcode')
+      const machineHistoryUrl = `${window.location.origin}/machine/${machine.id}/?tab=historique`
+      qrCodeDataUrl = await QRCode.toDataURL(machineHistoryUrl, {
+        width: 200,
+        margin: 1,
+        color: {
+          dark: '#1e293b',
+          light: '#ffffff'
+        }
+      })
+    } catch (error) {
+      console.warn('Impossible de générer le QR code de la machine', error)
+    }
+  }
+
   const logoHeight = 11
   const logoY = yPosition
 
@@ -128,7 +146,16 @@ export async function generateOTPdf(ordre: OrdreTravailDetail) {
     doc.text('GMAO', margin, logoY + 8)
   }
 
-  yPosition += logoHeight + 10
+  if (qrCodeDataUrl) {
+    const qrCodeSize = 18
+    const qrCodeX = (pageWidth - qrCodeSize) / 2
+    doc.setDrawColor(203, 213, 225)
+    doc.setLineWidth(0.2)
+    doc.rect(qrCodeX - 0.5, logoY - 0.5, qrCodeSize + 1, qrCodeSize + 1)
+    doc.addImage(qrCodeDataUrl, 'PNG', qrCodeX, logoY, qrCodeSize, qrCodeSize)
+  }
+
+  yPosition += logoHeight + 15
 
   doc.setFontSize(16)
   doc.setFont('BahijTheSansArabic', 'bold')
