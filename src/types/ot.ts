@@ -139,6 +139,10 @@ export type OrdreTravailDetail = {
   profile?: Profile;
   plans_maintenance?: PlanMaintenanceDetail | null;
   technicien?: Technicien | null;
+  interventions?: Array<{
+    date_debut?: string;
+    technicien?: Technicien | null;
+  }>;
 };
 
 

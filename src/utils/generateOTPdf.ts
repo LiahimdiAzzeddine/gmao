@@ -14,7 +14,7 @@ function checkPageBreak(doc: jsPDF, yPosition: number, requiredSpace: number, ma
   return yPosition
 }
 
-function drawSignatures(doc: jsPDF, pageWidth: number, pageHeight: number, margin: number) {
+function drawSignatures(doc: jsPDF, pageWidth: number, pageHeight: number, margin: number, technicienNom: string, dateSignature: string) {
   const signWidth = 60
   const signHeight = 19
   const signatureBlockHeight = 35
@@ -29,10 +29,13 @@ function drawSignatures(doc: jsPDF, pageWidth: number, pageHeight: number, margi
 
   doc.text('SIGNATURE TECHNICIEN', margin + 5, signY)
   doc.rect(margin, signY + 2, signWidth, signHeight)
-  doc.setFontSize(6)
+  doc.setFontSize(8)
+  doc.setFont('BahijTheSansArabic', 'bold')
+  const nomAffiche = doc.splitTextToSize(`Nom: ${technicienNom}`, signWidth - 4)
+  doc.text(nomAffiche.slice(0, 2), margin + 2, signY + 7)
+  doc.setFontSize(7)
   doc.setFont('BahijTheSansArabic', 'normal')
-  doc.text('Date:', margin + 2, signY + 25)
-  doc.line(margin + 8, signY + 25, margin + 30, signY + 25)
+  doc.text(`Date: ${dateSignature}`, margin + 2, signY + 25)
 
   doc.setFontSize(8)
   doc.setFont('BahijTheSansArabic', 'bold')
@@ -40,7 +43,7 @@ function drawSignatures(doc: jsPDF, pageWidth: number, pageHeight: number, margi
   doc.rect(pageWidth - margin - signWidth, signY + 2, signWidth, signHeight)
   doc.setFontSize(6)
   doc.setFont('BahijTheSansArabic', 'normal')
-  doc.text('Date:', pageWidth - margin - signWidth + 2, signY + 25)
+  doc.text('Dateg:', pageWidth - margin - signWidth + 2, signY + 25)
   doc.line(pageWidth - margin - signWidth + 8, signY + 25, pageWidth - margin - signWidth + 30, signY + 25)
 }
 
@@ -98,7 +101,11 @@ export async function generateOTPdf(ordre: OrdreTravailDetail) {
   const plan = ordre.plans_maintenance
   const machine = ordre?.machine
   const gamme = plan?.gamme
-  const technicien = ordre.profile
+  const interventionSignature = ordre.interventions?.find((intervention) => intervention.technicien?.nom)
+  const technicienIntervention = interventionSignature?.technicien
+  const dateIntervention = interventionSignature?.date_debut
+    ? new Date(interventionSignature.date_debut).toLocaleDateString('fr-FR')
+    : new Date().toLocaleDateString('fr-FR')
   const poste_technique = machine?.poste_technique
   const client = machine?.client
 
@@ -440,7 +447,14 @@ export async function generateOTPdf(ordre: OrdreTravailDetail) {
   }
   
 
-  drawSignatures(doc, pageWidth, pageHeight, margin)
+  drawSignatures(
+    doc,
+    pageWidth,
+    pageHeight,
+    margin,
+    technicienIntervention?.nom || 'Non assigné',
+    dateIntervention
+  )
 
   const fileName = `OT_${ordre.numot}_${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`
   doc.save(fileName)
