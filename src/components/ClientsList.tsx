@@ -286,90 +286,75 @@ export default function ClientsList() {
     const isRecent = new Date(client.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     return (
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:border-[#f98440]/60 hover:shadow-md">
-        {/* Header */}
-        <div className="p-3 pb-2">
-          <div className="flex items-start justify-between mb-2">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <div className="flex-shrink-0 rounded-lg bg-[#f98440] p-2 shadow-sm">
-                <User size={16} className="text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-bold text-slate-900 truncate">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-300 hover:border-[#f98440]/60 hover:shadow-md">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+          {/* Identité */}
+          <div className="flex min-w-0 items-start gap-3 lg:w-[28%] lg:items-center">
+            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#f98440] shadow-sm">
+              <User size={20} className="text-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="truncate text-sm font-bold text-slate-900 sm:text-base">
                   {client.raison_sociale || 'Client'}
                 </h3>
-                <p className="text-xs text-slate-600 truncate">
-                  {client.prenom} {client.profile.nom}
-                </p>
+                {isRecent && (
+                  <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
+                    Nouveau
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 truncate text-xs text-slate-600 sm:text-sm">
+                {client.prenom} {client.profile.nom}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium ${
+                  machineCount > 0 ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-600'
+                }`}>
+                  <Building2 size={12} />
+                  {machineCount} machine{machineCount > 1 ? 's' : ''}
+                </span>
+                {client.cin && (
+                  <span className="flex items-center gap-1 rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+                    <CreditCard size={12} />
+                    {client.cin}
+                  </span>
+                )}
               </div>
             </div>
-            {isRecent && (
-              <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded flex-shrink-0">
-                New
+          </div>
+
+          {/* Coordonnées */}
+          <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 border-y border-slate-100 py-3 sm:grid-cols-2 lg:grid-cols-3 lg:border-x lg:border-y-0 lg:px-5 lg:py-0">
+            <div className="flex min-w-0 items-center gap-2 text-sm text-slate-700">
+              <Mail size={15} className="flex-shrink-0 text-slate-400" />
+              <span className="truncate">{client.profile.email}</span>
+            </div>
+            <div className="flex min-w-0 items-center gap-2 text-sm text-slate-700">
+              <Phone size={15} className="flex-shrink-0 text-slate-400" />
+              {client.telephone ? (
+                <a href={`tel:${client.telephone}`} className="truncate hover:text-[#f98440]">
+                  {client.telephone}
+                </a>
+              ) : (
+                <span className="italic text-slate-400">Non renseigné</span>
+              )}
+            </div>
+            <div className="flex min-w-0 items-start gap-2 text-sm text-slate-700 sm:col-span-2 lg:col-span-1">
+              <MapPin size={15} className="mt-0.5 flex-shrink-0 text-slate-400" />
+              <span className="line-clamp-2">
+                {client.adresse || <span className="italic text-slate-400">Adresse non renseignée</span>}
               </span>
-            )}
-          </div>
-
-          {/* Machine Count Badge */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <div className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
-              machineCount > 0 
-                ? 'bg-green-50 text-green-700' 
-                : 'bg-slate-50 text-slate-600'
-            }`}>
-              <Building2 size={12} />
-              {machineCount} machine{machineCount > 1 ? 's' : ''}
             </div>
-            {client.cin && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium">
-                <CreditCard size={12} />
-                {client.cin}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Contact Info */}
-        <div className="px-3 pb-2 space-y-1.5">
-          {/* Email */}
-          <div className="flex items-center gap-2 p-2 bg-slate-50 rounded">
-            <Mail size={12} className="text-slate-500 flex-shrink-0" />
-            <span className="text-xs text-slate-700 truncate flex-1">
-              {client.profile.email}
-            </span>
           </div>
 
-          {/* Phone */}
-          <div className="flex items-center gap-2 p-2 bg-slate-50 rounded">
-            <Phone size={12} className="text-slate-500 flex-shrink-0" />
-            {client.telephone ? (
-              <a
-                href={`tel:${client.telephone}`}
-                className="flex-1 truncate text-xs text-slate-700 transition-colors hover:text-[#f98440]"
-              >
-                {client.telephone}
-              </a>
-            ) : (
-              <span className="text-xs text-slate-500 italic flex-1">Non renseigné</span>
-            )}
-          </div>
-
-          {/* Address */}
-          <div className="flex items-start gap-2 p-2 bg-slate-50 rounded">
-            <MapPin size={12} className="text-slate-500 flex-shrink-0 mt-0.5" />
-            <span className="text-xs text-slate-700 flex-1 line-clamp-2">
-              {client.adresse || <span className="italic text-slate-500">Adresse non renseignée</span>}
-            </span>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="p-3 pt-0">
+          {/* Actions */}
+          <div className="flex-shrink-0 lg:w-[250px]">
           {deleteConfirm === client.id ? (
-            <div className="space-y-2 p-2 bg-red-50 rounded border border-red-200">
+            <div className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-2">
               <div className="flex items-center gap-1.5 text-red-700">
                 <Trash2 size={12} />
-                <p className="text-xs font-medium">Confirmer ?</p>
+                <p className="text-xs font-medium">Confirmer la suppression ?</p>
               </div>
               <div className="flex gap-1.5">
                 <button
@@ -387,19 +372,17 @@ export default function ClientsList() {
               </div>
             </div>
           ) : (
-            <div className="space-y-1.5">
-              {/* Primary Actions */}
-              <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => navigate(`/admin/client/${client.id}`)}
-                  className="flex items-center justify-center gap-1.5 rounded bg-[#f98440] px-2 py-1.5 text-xs font-medium text-white transition-all hover:bg-[#e97435]"
+                  className="flex items-center justify-center gap-1.5 rounded-lg bg-[#f98440] px-2 py-2 text-xs font-medium text-white transition-all hover:bg-[#e97435]"
                 >
                   <Edit2 size={12} />
                   Modifier
                 </button>
                 <button
                   onClick={() => copyCredentials(client)}
-                  className="flex items-center justify-center gap-1.5 rounded bg-orange-100 px-2 py-1.5 text-xs font-medium text-[#f98440] transition-all hover:bg-orange-200"
+                  className="flex items-center justify-center gap-1.5 rounded-lg bg-orange-100 px-2 py-2 text-xs font-medium text-[#f98440] transition-all hover:bg-orange-200"
                 >
                   {copiedCredentials === client.id ? (
                     <>
@@ -413,27 +396,23 @@ export default function ClientsList() {
                     </>
                   )}
                 </button>
-              </div>
-
-              {/* Secondary Actions */}
-              <div className="grid grid-cols-2 gap-1.5">
                 <button
                   onClick={() => navigate(`/admin/machines?client=${client.id}`)}
-                  className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-slate-100 text-slate-700 rounded hover:bg-slate-200 font-medium text-xs transition-all"
+                  className="flex items-center justify-center gap-1.5 rounded-lg bg-slate-100 px-2 py-2 text-xs font-medium text-slate-700 transition-all hover:bg-slate-200"
                 >
                   <Eye size={12} />
                   Machines
                 </button>
                 <button
                   onClick={() => setDeleteConfirm(client.id)}
-                  className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100 font-medium text-xs transition-all"
+                  className="flex items-center justify-center gap-1.5 rounded-lg bg-red-50 px-2 py-2 text-xs font-medium text-red-600 transition-all hover:bg-red-100"
                 >
                   <Trash2 size={12} />
                   Supprimer
                 </button>
-              </div>
             </div>
           )}
+          </div>
         </div>
       </div>
     );
@@ -476,7 +455,7 @@ export default function ClientsList() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-7xl py-2">
+      <div className="mx-auto py-2">
         {/* Header */}
         <div className="mb-5 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100 md:p-5">
           <h1 className="text-xl font-black text-slate-900 sm:text-2xl">Gestion des Clients</h1>
@@ -508,7 +487,7 @@ export default function ClientsList() {
             {filteredClients.length === 0 ? (
               <EmptyState />
             ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+              <div className="space-y-3">
                 {filteredClients.map(client => (
                   <ClientCard key={client.id} client={client} />
                 ))}

@@ -306,13 +306,24 @@ export default function MachinesList() {
 
   return (
     <>
-      <div className="mx-auto mb-10 max-w-7xl">
+      <div className="mx-auto mb-10">
         {showClientModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className="w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-2xl">
-              <div className="bg-[#f98440] p-5 text-white">
-                <h2 className="text-xl font-black">Sélectionner un client</h2>
-                <p className="mt-1 text-sm text-white/80">Choisissez le client et appliquez des filtres optionnels</p>
+              <div className="flex items-start justify-between gap-4 bg-[#f98440] p-5 text-white">
+                <div>
+                  <h2 className="text-xl font-black">Sélectionner un client</h2>
+                  <p className="mt-1 text-sm text-white/80">Choisissez le client et appliquez des filtres optionnels</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate(-1)}
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70"
+                  aria-label="Retour à la page précédente"
+                  title="Retour à la page précédente"
+                >
+                  <X size={22} />
+                </button>
               </div>
               <div className="p-6 max-h-[80vh] overflow-y-auto space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

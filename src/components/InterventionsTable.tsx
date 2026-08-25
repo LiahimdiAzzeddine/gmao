@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Filter, Calendar, User, FileText, ChevronDown, Eye, Edit, Trash2, Loader2, CheckCircle, XCircle, X, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, Filter, Calendar, User, FileText, ChevronDown, Eye, Edit, Trash2, Loader2, CheckCircle, XCircle, X, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MachineState, getMachineStateConfig } from '../types/machineState';
@@ -73,6 +73,16 @@ interface Intervention {
     } | null;
 }
 
+let interventionsListStateCache: {
+    signature: string;
+    interventions: Intervention[];
+    totalCount: number;
+    hasMore: boolean;
+    nextOffset: number;
+    scrollY: number;
+    showFilters: boolean;
+} | null = null;
+
 const InterventionsTable: React.FC = () => {
     // État pour le modal de sélection de client
     const [selectedClientId, setSelectedClientId] = useState<string | null>(() => {
@@ -96,10 +106,15 @@ const InterventionsTable: React.FC = () => {
     });
     
     // Filtres appliqués
-    const [searchTerm, setSearchTerm] = useState<string>('');
-    const [filterType, setFilterType] = useState<string>('all');
-    const [filterTechnicien, setFilterTechnicien] = useState<string>('all');
-    const [filterStatutOT, setFilterStatutOT] = useState<string>('all');
+    const [searchTerm, setSearchTerm] = useState<string>(() => localStorage.getItem('interventions_searchTerm') || '');
+    const [filterType, setFilterType] = useState<string>(() => localStorage.getItem('interventions_filterType') || 'all');
+    const [filterTechnicien, setFilterTechnicien] = useState<string>(() => localStorage.getItem('interventions_filterTechnicien') || 'all');
+    const [filterStatutOT, setFilterStatutOT] = useState<string>(() => localStorage.getItem('interventions_filterStatutOT') || 'all');
+    const [filterDateProgrammee, setFilterDateProgrammee] = useState<string>(() => localStorage.getItem('interventions_filterDateProgrammee') || '');
+    const [filterDateProgrammeeFin, setFilterDateProgrammeeFin] = useState<string>(() => localStorage.getItem('interventions_filterDateProgrammeeFin') || '');
+    const [filterDateRealisation, setFilterDateRealisation] = useState<string>(() => localStorage.getItem('interventions_filterDateRealisation') || '');
+    const [filterDateRealisationFin, setFilterDateRealisationFin] = useState<string>(() => localStorage.getItem('interventions_filterDateRealisationFin') || '');
+    const [showFilters, setShowFilters] = useState(false);
     
     const [interventions, setInterventions] = useState<Intervention[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
@@ -108,13 +123,14 @@ const InterventionsTable: React.FC = () => {
 
     const selectedClient = clients.find((client) => client.id === selectedClientId) || null;
     
-    // États pour la pagination
-    const [currentPage, setCurrentPage] = useState<number>(() => {
-        return parseInt(localStorage.getItem('interventions_currentPage') || '1');
-    });
-    const [itemsPerPage, setItemsPerPage] = useState<number>(() => {
-        return parseInt(localStorage.getItem('interventions_itemsPerPage') || '10');
-    });
+    // État du chargement progressif
+    const PAGE_SIZE = 20;
+    const [hasMore, setHasMore] = useState(false);
+    const [totalCount, setTotalCount] = useState(0);
+    const nextOffsetRef = useRef(0);
+    const requestVersionRef = useRef(0);
+    const loadMoreRef = useRef<HTMLDivElement | null>(null);
+    const restoreAttemptedRef = useRef(false);
     
     // États pour la dialog de validation
     const [showValidationDialog, setShowValidationDialog] = useState<boolean>(false);
@@ -158,23 +174,23 @@ const InterventionsTable: React.FC = () => {
         }
     }, [location, navigate]);
 
-    // Réinitialiser à la page 1 quand les filtres changent
+    // Conserver les filtres lors d'un retour sur la page ou d'un rechargement.
     useEffect(() => {
-        setCurrentPage(1);
-    }, [searchTerm, filterType, filterTechnicien, filterStatutOT]);
+        localStorage.setItem('interventions_searchTerm', searchTerm);
+        localStorage.setItem('interventions_filterType', filterType);
+        localStorage.setItem('interventions_filterTechnicien', filterTechnicien);
+        localStorage.setItem('interventions_filterStatutOT', filterStatutOT);
+        localStorage.setItem('interventions_filterDateProgrammee', filterDateProgrammee);
+        localStorage.setItem('interventions_filterDateProgrammeeFin', filterDateProgrammeeFin);
+        localStorage.setItem('interventions_filterDateRealisation', filterDateRealisation);
+        localStorage.setItem('interventions_filterDateRealisationFin', filterDateRealisationFin);
+    }, [searchTerm, filterType, filterTechnicien, filterStatutOT, filterDateProgrammee, filterDateProgrammeeFin, filterDateRealisation, filterDateRealisationFin]);
 
     // Charger les clients au montage
     useEffect(() => {
         fetchClients();
         fetchTechniciens(); // Charger les techniciens pour le modal
     }, []);
-
-    // Charger les interventions seulement si un client est sélectionné
-    useEffect(() => {
-        if (selectedClientId) {
-            fetchInterventions();
-        }
-    }, [selectedClientId]);
 
     const fetchClients = async (): Promise<void> => {
         try {
@@ -208,14 +224,42 @@ const InterventionsTable: React.FC = () => {
         setShowClientModal(false);
     };
 
-    useEffect(() => {
-        fetchInterventions();
-        fetchTechniciens();
-    }, []);
+    const getNextDate = (date: string) => {
+        const nextDate = new Date(`${date}T00:00:00Z`);
+        nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+        return nextDate.toISOString().slice(0, 10);
+    };
 
-    const fetchInterventions = async (): Promise<void> => {
+    const getListSignature = () => JSON.stringify({
+        selectedClientId,
+        searchTerm,
+        filterType,
+        filterTechnicien,
+        filterStatutOT,
+        filterDateProgrammee,
+        filterDateProgrammeeFin,
+        filterDateRealisation,
+        filterDateRealisationFin
+    });
+
+    const preserveListState = () => {
+        interventionsListStateCache = {
+            signature: getListSignature(),
+            interventions,
+            totalCount,
+            hasMore,
+            nextOffset: nextOffsetRef.current,
+            scrollY: window.scrollY,
+            showFilters
+        };
+    };
+
+    const fetchInterventions = async (append = false): Promise<void> => {
         if (!selectedClientId) return;
-        
+
+        const version = append ? requestVersionRef.current : ++requestVersionRef.current;
+        const offset = append ? nextOffsetRef.current : 0;
+
         try {
             setLoading(true);
             setError(null);
@@ -223,7 +267,7 @@ const InterventionsTable: React.FC = () => {
             // D'abord, récupérer les machines du client
             const { data: machinesData, error: machinesError } = await supabase
                 .from('machines')
-                .select('id')
+                .select('id, nom, modele')
                 .eq('client_id', selectedClientId);
 
             if (machinesError) throw machinesError;
@@ -231,29 +275,72 @@ const InterventionsTable: React.FC = () => {
             const machineIds = machinesData?.map(m => m.id) || [];
 
             if (machineIds.length === 0) {
+                if (version !== requestVersionRef.current) return;
                 setInterventions([]);
-                setLoading(false);
+                nextOffsetRef.current = 0;
+                setTotalCount(0);
+                setHasMore(false);
                 return;
             }
 
-            // Ensuite, récupérer les OT de ces machines
-            const { data: otData, error: otError } = await supabase
+            // Les filtres OT sont exécutés par PostgreSQL avant le chargement de la tranche.
+            let otQuery = supabase
                 .from('ordres_travail')
-                .select('id')
+                .select('id, machine_id, plan:plans_maintenance(gamme:gammes_maintenance(nom))')
                 .in('machine_id', machineIds);
+
+            if (filterType !== 'all') otQuery = otQuery.eq('type', filterType);
+            if (filterStatutOT !== 'all') otQuery = otQuery.eq('statut', filterStatutOT);
+            if (filterDateProgrammee) {
+                otQuery = otQuery.gte('date_programmee', `${filterDateProgrammee}T00:00:00`);
+            }
+            if (filterDateProgrammeeFin) {
+                otQuery = otQuery.lt('date_programmee', `${getNextDate(filterDateProgrammeeFin)}T00:00:00`);
+            }
+
+            const { data: otData, error: otError } = await otQuery;
 
             if (otError) throw otError;
 
-            const otIds = otData?.map(ot => ot.id) || [];
+            const allOtIds = (otData || []).map((ot: any) => ot.id);
+            let matchingOtIds = allOtIds;
+            let matchingTechnicianIds: string[] = [];
+            const normalizedSearch = searchTerm.trim().toLocaleLowerCase('fr');
 
-            if (otIds.length === 0) {
+            if (normalizedSearch) {
+                const selectedClientName = `${selectedClient?.raison_sociale || ''} ${selectedClient?.prenom || ''}`.toLocaleLowerCase('fr');
+                if (!selectedClientName.includes(normalizedSearch)) {
+                    const matchingMachineIds = new Set(
+                        (machinesData || [])
+                            .filter((machine: any) => `${machine.nom || ''} ${machine.modele || ''}`.toLocaleLowerCase('fr').includes(normalizedSearch))
+                            .map((machine: any) => machine.id)
+                    );
+                    matchingOtIds = (otData || [])
+                        .filter((ot: any) => {
+                            const gammeNom = ot.plan?.gamme?.nom || '';
+                            return matchingMachineIds.has(ot.machine_id) || gammeNom.toLocaleLowerCase('fr').includes(normalizedSearch);
+                        })
+                        .map((ot: any) => ot.id);
+
+                    const { data: matchingTechnicians, error: techniciansError } = await supabase
+                        .from('profiles')
+                        .select('id')
+                        .ilike('nom', `%${searchTerm.trim()}%`);
+                    if (techniciansError) throw techniciansError;
+                    matchingTechnicianIds = (matchingTechnicians || []).map((profile: any) => profile.id);
+                }
+            }
+
+            if (allOtIds.length === 0 || (matchingOtIds.length === 0 && matchingTechnicianIds.length === 0)) {
+                if (version !== requestVersionRef.current) return;
                 setInterventions([]);
-                setLoading(false);
+                nextOffsetRef.current = 0;
+                setTotalCount(0);
+                setHasMore(false);
                 return;
             }
 
-            // Enfin, récupérer les interventions de ces OT
-            const { data, error } = await supabase
+            let interventionsQuery = supabase
                 .from('interventions')
                 .select(`
                     *,
@@ -290,9 +377,27 @@ const InterventionsTable: React.FC = () => {
                         id,
                         nom
                     )
-                `)
-                .in('ordre_travail_id', otIds)
+                `, { count: 'exact' })
+                .in('ordre_travail_id', allOtIds)
                 .order('date_debut', { ascending: false });
+
+            if (normalizedSearch && matchingOtIds.length !== allOtIds.length) {
+                const searchClauses: string[] = [];
+                if (matchingOtIds.length > 0) searchClauses.push(`ordre_travail_id.in.(${matchingOtIds.join(',')})`);
+                if (matchingTechnicianIds.length > 0) searchClauses.push(`technicien_id.in.(${matchingTechnicianIds.join(',')})`);
+                interventionsQuery = interventionsQuery.or(searchClauses.join(','));
+            }
+            if (filterTechnicien !== 'all') {
+                interventionsQuery = interventionsQuery.eq('technicien_id', filterTechnicien);
+            }
+            if (filterDateRealisation) {
+                interventionsQuery = interventionsQuery.gte('date_debut', `${filterDateRealisation}T00:00:00`);
+            }
+            if (filterDateRealisationFin) {
+                interventionsQuery = interventionsQuery.lt('date_debut', `${getNextDate(filterDateRealisationFin)}T00:00:00`);
+            }
+
+            const { data, error, count } = await interventionsQuery.range(offset, offset + PAGE_SIZE - 1);
 
             if (error) throw error;
 
@@ -332,14 +437,55 @@ const InterventionsTable: React.FC = () => {
                 });
             }
 
-            setInterventions(interventionsAvecGamme);
+            if (version !== requestVersionRef.current) return;
+            setInterventions((previous) => append ? [...previous, ...interventionsAvecGamme] : interventionsAvecGamme);
+            nextOffsetRef.current = offset + interventionsAvecGamme.length;
+            setTotalCount(count || 0);
+            setHasMore(offset + interventionsAvecGamme.length < (count || 0));
         } catch (err) {
+            if (version !== requestVersionRef.current) return;
             console.error('Erreur lors du chargement des interventions:', err);
             setError(err instanceof Error ? err.message : 'Une erreur est survenue');
         } finally {
-            setLoading(false);
+            if (version === requestVersionRef.current) setLoading(false);
         }
     };
+
+    // Un court délai évite une requête à chaque frappe dans le champ de recherche.
+    useEffect(() => {
+        if (!selectedClientId) return;
+
+        if (!restoreAttemptedRef.current) {
+            restoreAttemptedRef.current = true;
+            const saved = interventionsListStateCache;
+            interventionsListStateCache = null;
+            if (saved?.signature === getListSignature()) {
+                setInterventions(saved.interventions);
+                setTotalCount(saved.totalCount);
+                setHasMore(saved.hasMore);
+                nextOffsetRef.current = saved.nextOffset;
+                setShowFilters(saved.showFilters);
+                window.setTimeout(() => window.scrollTo({ top: saved.scrollY, behavior: 'auto' }), 0);
+                return;
+            }
+        }
+
+        const timer = window.setTimeout(() => fetchInterventions(false), 300);
+        return () => window.clearTimeout(timer);
+    }, [selectedClientId, searchTerm, filterType, filterTechnicien, filterStatutOT, filterDateProgrammee, filterDateProgrammeeFin, filterDateRealisation, filterDateRealisationFin]);
+
+    useEffect(() => {
+        const target = loadMoreRef.current;
+        if (!target || !hasMore) return;
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting && !loading) fetchInterventions(true);
+            },
+            { rootMargin: '300px' }
+        );
+        observer.observe(target);
+        return () => observer.disconnect();
+    }, [hasMore, loading]);
 
     const fetchTechniciens = async (): Promise<void> => {
         try {
@@ -1032,75 +1178,24 @@ const InterventionsTable: React.FC = () => {
         }
     };
 
-    const filteredInterventions = interventions.filter((intervention) => {
-        const machineName = intervention.ordre_travail?.machine?.nom || '';
-        const machineModele = intervention.ordre_travail?.machine?.modele || '';
-        const technicienNom = intervention.technicien?.nom || '';
-        const gammeNom = intervention.ordre_travail?.gamme_nom || '';
-        const clientName = intervention.ordre_travail?.machine?.client?.raison_sociale || 
-                          intervention.ordre_travail?.machine?.client?.prenom || '';
+    const filteredInterventions = interventions;
+    const paginatedInterventions = interventions;
+    const activeFiltersCount = [
+        filterType !== 'all',
+        filterTechnicien !== 'all',
+        filterStatutOT !== 'all',
+        Boolean(filterDateProgrammee || filterDateProgrammeeFin),
+        Boolean(filterDateRealisation || filterDateRealisationFin)
+    ].filter(Boolean).length;
 
-        const matchesSearch =
-            machineName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            gammeNom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            machineModele.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            technicienNom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            clientName.toLowerCase().includes(searchTerm.toLowerCase());
-
-        const matchesType = filterType === 'all' || intervention.ordre_travail?.type === filterType;
-        const matchesTechnicien = filterTechnicien === 'all' || intervention.technicien?.id === filterTechnicien;
-        
-        // Logique de filtrage par statut OT
-        const matchesStatutOT = filterStatutOT === 'all' || intervention.ordre_travail?.statut === filterStatutOT;
-
-        return matchesSearch && matchesType && matchesTechnicien && matchesStatutOT;
-    });
-
-    // Calcul de la pagination
-    const totalPages = Math.ceil(filteredInterventions.length / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const paginatedInterventions = filteredInterventions.slice(startIndex, endIndex);
-
-    const goToPage = (page: number) => {
-        if (page >= 1 && page <= totalPages) {
-            setCurrentPage(page);
-        }
-    };
-
-    const getPageNumbers = () => {
-        const pages: (number | string)[] = [];
-        const maxVisiblePages = 5;
-
-        if (totalPages <= maxVisiblePages) {
-            for (let i = 1; i <= totalPages; i++) {
-                pages.push(i);
-            }
-        } else {
-            if (currentPage <= 3) {
-                for (let i = 1; i <= 4; i++) {
-                    pages.push(i);
-                }
-                pages.push('...');
-                pages.push(totalPages);
-            } else if (currentPage >= totalPages - 2) {
-                pages.push(1);
-                pages.push('...');
-                for (let i = totalPages - 3; i <= totalPages; i++) {
-                    pages.push(i);
-                }
-            } else {
-                pages.push(1);
-                pages.push('...');
-                pages.push(currentPage - 1);
-                pages.push(currentPage);
-                pages.push(currentPage + 1);
-                pages.push('...');
-                pages.push(totalPages);
-            }
-        }
-
-        return pages;
+    const clearFilters = () => {
+        setFilterType('all');
+        setFilterTechnicien('all');
+        setFilterStatutOT('all');
+        setFilterDateProgrammee('');
+        setFilterDateProgrammeeFin('');
+        setFilterDateRealisation('');
+        setFilterDateRealisationFin('');
     };
 
     const getTypeColor = (type: string): string => {
@@ -1201,7 +1296,13 @@ const InterventionsTable: React.FC = () => {
     };
 
     const handleEdit = (intervention: Intervention) => {
+        preserveListState();
         navigate(`/intervention/edit?ordre_id=${intervention.ordre_travail_id}&intervention_id=${intervention.id}`);
+    };
+
+    const handleView = (intervention: Intervention) => {
+        preserveListState();
+        navigate(`/admin/intervention/${intervention.id}`);
     };
 
     // Analyser les étapes pour détecter les non-conformités
@@ -1219,17 +1320,6 @@ const InterventionsTable: React.FC = () => {
             etapes: etapesProblematiques
         };
     };
-
-    if (loading) {
-        return (
-            <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
-                <div className="text-center">
-                    <Loader2 size={48} className="mx-auto mb-4 animate-spin text-[#f98440]" />
-                    <p className="text-slate-600 text-lg">Chargement des interventions...</p>
-                </div>
-            </div>
-        );
-    }
 
     if (error) {
         return (
@@ -1387,7 +1477,8 @@ const InterventionsTable: React.FC = () => {
 
                 {/* Barre de recherche et compteur */}
                 <div className="mb-5 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100 md:p-5">
-                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center">
+                    <div className="flex flex-col gap-3">
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center">
                         {/* Search */}
                         <div className="flex-1 w-full relative">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
@@ -1400,15 +1491,74 @@ const InterventionsTable: React.FC = () => {
                             />
                         </div>
 
-                        {/* Results Count */}
-                        <div className="text-xs sm:text-sm text-slate-600 whitespace-nowrap">
-                            {filteredInterventions.length} intervention{filteredInterventions.length > 1 ? 's' : ''} trouvée{filteredInterventions.length > 1 ? 's' : ''}
-                            {filteredInterventions.length > itemsPerPage && (
-                                <span className="ml-2">
-                                    (page {currentPage} sur {totalPages})
-                                </span>
-                            )}
+                            <button
+                                type="button"
+                                onClick={() => setShowFilters((visible) => !visible)}
+                                className={`flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${showFilters || activeFiltersCount > 0 ? 'bg-[#f98440] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
+                                aria-expanded={showFilters}
+                            >
+                                <Filter size={18} />
+                                Filtres
+                                {activeFiltersCount > 0 && <span className="rounded-full bg-white px-2 py-0.5 text-xs font-bold text-[#f98440]">{activeFiltersCount}</span>}
+                                <ChevronDown size={17} className={`transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+                            </button>
+                            <div className="text-xs sm:text-sm text-slate-600 whitespace-nowrap">
+                                {interventions.length} sur {totalCount} intervention{totalCount > 1 ? 's' : ''}
+                            </div>
                         </div>
+                        {showFilters && (
+                            <div className="border-t border-slate-200 pt-4">
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                    <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30">
+                                        <option value="all">Tous les types</option>
+                                        <option value="préventif">Préventif</option>
+                                        <option value="correctif">Correctif</option>
+                                        <option value="curatif">Curatif</option>
+                                    </select>
+                                    <select value={filterTechnicien} onChange={(e) => setFilterTechnicien(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30">
+                                        <option value="all">Tous les techniciens</option>
+                                        {techniciens.map((technicien) => <option key={technicien.id} value={technicien.id}>{technicien.nom}</option>)}
+                                    </select>
+                                    <select value={filterStatutOT} onChange={(e) => setFilterStatutOT(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30">
+                                        <option value="all">Tous les statuts OT</option>
+                                        <option value="prévu">Prévu</option>
+                                        <option value="en_cours">En cours</option>
+                                        <option value="terminé">Clôturé</option>
+                                        <option value="annulé">Annulé</option>
+                                        <option value="clôturé_avec_anomalie">Clôturé avec anomalie</option>
+                                    </select>
+                                    <fieldset className="rounded-lg border border-slate-200 p-3 sm:col-span-2 xl:col-span-1">
+                                        <legend className="px-1 text-xs font-semibold text-slate-600">Date programmée</legend>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <label className="text-xs text-slate-500">Du
+                                                <input type="date" value={filterDateProgrammee} max={filterDateProgrammeeFin || undefined} onChange={(e) => setFilterDateProgrammee(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30" />
+                                            </label>
+                                            <label className="text-xs text-slate-500">Au
+                                                <input type="date" value={filterDateProgrammeeFin} min={filterDateProgrammee || undefined} onChange={(e) => setFilterDateProgrammeeFin(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30" />
+                                            </label>
+                                        </div>
+                                    </fieldset>
+                                    <fieldset className="rounded-lg border border-slate-200 p-3 sm:col-span-2 xl:col-span-1">
+                                        <legend className="px-1 text-xs font-semibold text-slate-600">Date de réalisation</legend>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <label className="text-xs text-slate-500">Du
+                                                <input type="date" value={filterDateRealisation} max={filterDateRealisationFin || undefined} onChange={(e) => setFilterDateRealisation(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30" />
+                                            </label>
+                                            <label className="text-xs text-slate-500">Au
+                                                <input type="date" value={filterDateRealisationFin} min={filterDateRealisation || undefined} onChange={(e) => setFilterDateRealisationFin(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30" />
+                                            </label>
+                                        </div>
+                                    </fieldset>
+                                </div>
+                                {activeFiltersCount > 0 && (
+                                    <div className="mt-3 flex justify-end">
+                                        <button type="button" onClick={clearFilters} className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-red-600">
+                                            <X size={16} /> Réinitialiser les filtres
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -1555,7 +1705,7 @@ const InterventionsTable: React.FC = () => {
                                 {/* Actions */}
                                 <div className="p-3 border-t border-slate-200 bg-slate-50 flex items-center gap-2">
                                     <button
-                                        onClick={() => navigate(`/admin/intervention/${intervention.id}`)}
+                                        onClick={() => handleView(intervention)}
                                         className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#f98440] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#e97435]"
                                     >
                                         <Eye size={14} />
@@ -1584,7 +1734,7 @@ const InterventionsTable: React.FC = () => {
                         );
                     })}
 
-                    {filteredInterventions.length === 0 && (
+                    {!loading && filteredInterventions.length === 0 && (
                         <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8 text-center">
                             <FileText size={48} className="mx-auto text-slate-300 mb-4" />
                             <p className="text-slate-600 text-base font-medium mb-2">Aucune intervention trouvée</p>
@@ -1623,7 +1773,7 @@ const InterventionsTable: React.FC = () => {
                                         État machine
                                     </th>
                                     
-                                    <th className="sticky right-[420px] bg-white px-6 py-4 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)]">
+                                    <th className="sticky right-[400px] bg-white px-6 py-4 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)]">
                                         Problèmes
                                     </th>
                                     <th className="sticky right-[280px] bg-white px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)]">
@@ -1703,7 +1853,7 @@ const InterventionsTable: React.FC = () => {
                                             </span>
                                         </td>
                                        
-                                        <td className={`sticky right-[420px] ${typeStickyColor} px-6 py-4 whitespace-nowrap text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)] transition-colors`}>
+                                        <td className={`sticky right-[400px] ${typeStickyColor} px-6 py-4 whitespace-nowrap text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)] transition-colors`}>
                                             <div className="flex flex-col items-center gap-2">
                                                 {/* Badge pour les étapes reportées */}
                                                 {(() => {
@@ -1760,7 +1910,7 @@ const InterventionsTable: React.FC = () => {
                                         <td className={`sticky right-0 ${typeStickyColor} px-6 py-4 whitespace-nowrap shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)] transition-colors`}>
                                             <div className="flex items-center gap-2">
                                                 <button
-                                                    onClick={() => navigate(`/admin/intervention/${intervention.id}`)}
+                                                    onClick={() => handleView(intervention)}
                                                     className="rounded-lg border border-orange-200 bg-orange-50 p-2 text-[#f98440] transition-colors hover:bg-orange-100"
                                                     title="Voir détails"
                                                 >
@@ -1794,7 +1944,7 @@ const InterventionsTable: React.FC = () => {
                         </table>
                     </div>
 
-                    {filteredInterventions.length === 0 && (
+                    {!loading && filteredInterventions.length === 0 && (
                         <div className="text-center py-12">
                             <FileText size={48} className="mx-auto text-slate-300 mb-4" />
                             <p className="text-slate-600 text-lg font-medium mb-2">Aucune intervention trouvée</p>
@@ -1803,80 +1953,11 @@ const InterventionsTable: React.FC = () => {
                     )}
                 </div>
 
-                {/* Pagination */}
-                {filteredInterventions.length > 0 && (
-                    <div className="mt-5 rounded-lg bg-white p-3 shadow-sm ring-1 ring-slate-100 sm:p-4">
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-                            {/* Items per page */}
-                            <div className="flex items-center gap-2 text-xs sm:text-sm">
-                                <label className="text-slate-600">Afficher:</label>
-                                <select
-                                    value={itemsPerPage}
-                                    onChange={(e) => {
-                                        setItemsPerPage(Number(e.target.value));
-                                        setCurrentPage(1);
-                                    }}
-                                    className="rounded-lg border border-slate-300 px-2 py-1 text-xs focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30 sm:px-3 sm:py-1.5 sm:text-sm"
-                                >
-                                    <option value={5}>5</option>
-                                    <option value={10}>10</option>
-                                    <option value={20}>20</option>
-                                    <option value={50}>50</option>
-                                    <option value={100}>100</option>
-                                </select>
-                                <span className="text-slate-600 hidden sm:inline">par page</span>
-                            </div>
-
-                            {/* Page info */}
-                            <div className="text-xs sm:text-sm text-slate-600 text-center">
-                                {startIndex + 1} - {Math.min(endIndex, filteredInterventions.length)} sur {filteredInterventions.length}
-                            </div>
-
-                            {/* Page navigation */}
-                            <div className="flex items-center gap-1 sm:gap-2">
-                                <button
-                                    onClick={() => goToPage(currentPage - 1)}
-                                    disabled={currentPage === 1}
-                                    className="p-1.5 sm:p-2 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    title="Page précédente"
-                                >
-                                    <ChevronLeft size={16} className="text-slate-600" />
-                                </button>
-
-                                <div className="flex items-center gap-1">
-                                    {getPageNumbers().map((page, index) => (
-                                        page === '...' ? (
-                                            <span key={`ellipsis-${index}`} className="px-2 sm:px-3 py-1 sm:py-1.5 text-slate-400 text-xs sm:text-sm">
-                                                ...
-                                            </span>
-                                        ) : (
-                                            <button
-                                                key={page}
-                                                onClick={() => goToPage(page as number)}
-                                                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-                                                    currentPage === page
-                                                        ? 'bg-[#f98440] text-white'
-                                                        : 'text-slate-600 hover:bg-slate-100'
-                                                }`}
-                                            >
-                                                {page}
-                                            </button>
-                                        )
-                                    ))}
-                                </div>
-
-                                <button
-                                    onClick={() => goToPage(currentPage + 1)}
-                                    disabled={currentPage === totalPages}
-                                    className="p-1.5 sm:p-2 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    title="Page suivante"
-                                >
-                                    <ChevronRight size={16} className="text-slate-600" />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                <div ref={loadMoreRef} className="flex min-h-16 items-center justify-center py-4 text-sm text-slate-500">
+                    {loading && <><Loader2 size={18} className="mr-2 animate-spin text-[#f98440]" />Chargement des interventions...</>}
+                    {!loading && hasMore && 'Faites défiler pour charger la suite'}
+                    {!loading && !hasMore && interventions.length > 0 && `Toutes les interventions sont chargées (${totalCount})`}
+                </div>
 
                 {/* Dialog de confirmation de validation */}
                 {showValidationDialog && selectedIntervention && (

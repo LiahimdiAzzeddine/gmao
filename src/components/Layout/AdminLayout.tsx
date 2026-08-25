@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertTriangle, BarChart3, ChevronLeft, ClipboardList, Cpu, FileSpreadsheet, Home, Inbox, LogOut, Menu, Users, Wrench, X } from 'lucide-react';
+import { AlertTriangle, BarChart3, ChevronLeft, ChevronRight, ClipboardList, Cpu, FileSpreadsheet, Home, Inbox, LogOut, Menu, Users, Wrench, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 type LayoutProps = {
@@ -32,6 +32,15 @@ export function AdminLayout({ children, title = 'Administration', showBack = fal
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(() => localStorage.getItem('admin_sidebar_expanded') === 'true');
+
+  const toggleSidebar = () => {
+    setSidebarExpanded((expanded) => {
+      const nextValue = !expanded;
+      localStorage.setItem('admin_sidebar_expanded', String(nextValue));
+      return nextValue;
+    });
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -53,19 +62,37 @@ export function AdminLayout({ children, title = 'Administration', showBack = fal
   return (
     <div className="min-h-screen bg-[#eef2fb]">
       <div className="min-h-screen overflow-hidden bg-white">
-        <aside className="fixed left-0 top-0 z-50 hidden h-screen w-[76px] flex-col items-center bg-[#f98440] py-7 text-white shadow-lg lg:flex">
-          <button onClick={() => navigate('/admin')} title="Dashboard admin" className="flex h-11 w-11 items-center justify-center rounded-lg bg-white text-sm font-black text-[#f98440] shadow-sm">FSG</button>
-          <nav className="mt-8 flex flex-col gap-2">
+        <aside className={`fixed left-0 top-0 z-50 hidden h-screen flex-col bg-[#f98440] py-7 text-white shadow-lg transition-[width] duration-300 lg:flex ${sidebarExpanded ? 'w-60' : 'w-[76px]'}`}>
+          <div className={`relative flex items-center ${sidebarExpanded ? 'px-4' : 'justify-center'}`}>
+            <button onClick={() => navigate('/admin')} title="Dashboard admin" className={`flex h-11 items-center rounded-lg bg-white text-sm font-black text-[#f98440] shadow-sm ${sidebarExpanded ? 'w-full gap-3 px-3' : 'w-11 justify-center'}`}>
+              <span>FSG</span>
+              {sidebarExpanded && <span className="truncate text-left">Administration</span>}
+            </button>
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="absolute -right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border-2 border-[#f98440] bg-white text-[#f98440] shadow-md transition-transform hover:scale-110"
+              title={sidebarExpanded ? 'Réduire la barre latérale' : 'Afficher les noms des sections'}
+              aria-label={sidebarExpanded ? 'Réduire la barre latérale' : 'Déployer la barre latérale'}
+            >
+              {sidebarExpanded ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+            </button>
+          </div>
+          <nav className="mt-8 flex w-full flex-col gap-2 px-3">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
-                <button key={item.path} onClick={() => goTo(item.path)} title={item.label} aria-label={item.label} className={`flex h-9 w-9 items-center justify-center rounded-lg transition-all hover:scale-110 hover:bg-white/20 ${isActive(item) ? 'scale-110 bg-white/20 shadow-sm' : ''}`}>
-                  <Icon size={19} />
+                <button key={item.path} onClick={() => goTo(item.path)} title={sidebarExpanded ? undefined : item.label} aria-label={item.label} className={`flex h-10 items-center rounded-lg transition-all hover:bg-white/20 ${sidebarExpanded ? 'w-full gap-3 px-3' : 'w-10 justify-center self-center hover:scale-110'} ${isActive(item) ? 'bg-white/20 shadow-sm' : ''}`}>
+                  <Icon size={19} className="shrink-0" />
+                  {sidebarExpanded && <span className="truncate text-sm font-semibold">{item.label}</span>}
                 </button>
               );
             })}
           </nav>
-          <button onClick={handleLogout} title="Déconnexion" className="absolute bottom-7 flex h-9 w-9 items-center justify-center rounded-lg transition-all hover:scale-110 hover:bg-white/20"><LogOut size={19} /></button>
+          <button onClick={handleLogout} title={sidebarExpanded ? undefined : 'Déconnexion'} className={`absolute bottom-7 flex h-10 items-center rounded-lg transition-all hover:bg-white/20 ${sidebarExpanded ? 'left-3 right-3 gap-3 px-3' : 'left-[18px] w-10 justify-center hover:scale-110'}`}>
+            <LogOut size={19} className="shrink-0" />
+            {sidebarExpanded && <span className="text-sm font-semibold">Déconnexion</span>}
+          </button>
         </aside>
 
         <header className="sticky top-0 z-40 flex items-center justify-between bg-[#f98440] px-4 py-3 text-white shadow-md lg:hidden">
@@ -92,16 +119,16 @@ export function AdminLayout({ children, title = 'Administration', showBack = fal
           </div>
         )}
 
-        <main className="min-h-screen bg-slate-50 px-3 py-4 sm:px-6 lg:ml-[76px] lg:px-8 lg:py-5">
+        <main className={`min-h-screen bg-slate-50 px-3 py-4 transition-[margin] duration-300 sm:px-6 lg:px-8 lg:py-5 ${sidebarExpanded ? 'lg:ml-60' : 'lg:ml-[76px]'}`}>
           {(showBack || location.pathname !== '/admin') && (
-            <div className="mx-auto mb-4 flex max-w-7xl items-center gap-3">
+            <div className="mx-auto mb-4 flex items-center gap-3">
               {showBack && (
                 <button onClick={() => navigate(-1)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:border-[#f98440]/40 hover:text-[#f98440]" title="Retour"><ChevronLeft size={20} /></button>
               )}
               <h1 className="text-lg font-black text-slate-900 sm:text-xl">{title}</h1>
             </div>
           )}
-          <div className="mx-auto w-full max-w-7xl">
+          <div className="mx-auto w-full ">
             {children}
           </div>
         </main>

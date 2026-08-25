@@ -177,7 +177,7 @@ async function loadDemandes() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-7xl py-2">
+      <div className="mx-auto py-2">
         <div className="mb-6">
           <div className="mb-5 flex items-center justify-between rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100 md:p-5">
             <div>

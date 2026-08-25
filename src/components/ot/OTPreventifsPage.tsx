@@ -28,7 +28,7 @@ export default function OTPreventifsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="max-w-7xl mx-auto pt-6">
+      <div className="mx-auto pt-6">
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-3">
