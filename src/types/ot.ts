@@ -142,6 +142,9 @@ export type OrdreTravailDetail = {
   interventions?: Array<{
     date_debut?: string;
     technicien?: Technicien | null;
+    valide?: boolean | null;
+    etapes_gamme_checkees?: any[];
+    commentaire?: string | null;
   }>;
 };
 

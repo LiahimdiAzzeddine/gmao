@@ -29,6 +29,7 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { supabase } from '../lib/supabase';
 import { generateOTPdfReact } from '../utils/generateOTPdfReact';
 import { generateOTCPdfReact } from '../utils/generateOTCPdfReact';
+import { generateOTPdf } from '../utils/generateOTPdf';
 import type { OrdreTravailDetail } from '../types/ot';
 
 interface AdminStats {
@@ -45,6 +46,7 @@ interface AdminStats {
 
 type ValidationFilter = 'tous' | 'valide' | 'non_valide';
 type PdfTypeFilter = 'tous' | 'preventif' | 'correctif';
+type PdfTemplate = 'react' | 'classic';
 
 type PdfFilters = {
   dateDebut: string;
@@ -116,6 +118,7 @@ export default function AdminPanel() {
   });
   const [interventionsByClient, setInterventionsByClient] = useState<ClientInterventionPoint[]>(cachedCurrentValidation?.clients || []);
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [pdfTemplate, setPdfTemplate] = useState<PdfTemplate>('react');
   const [loadingPdfOrdres, setLoadingPdfOrdres] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [pdfProgress, setPdfProgress] = useState({ current: 0, total: 0 });
@@ -308,7 +311,8 @@ export default function AdminPanel() {
     }
   }
 
-  async function openPdfModal() {
+  async function openPdfModal(template: PdfTemplate = 'react') {
+    setPdfTemplate(template);
     setPdfError(null);
     setShowPdfModal(true);
 
@@ -383,16 +387,18 @@ export default function AdminPanel() {
           ...ordre,
           interventions: matchingInterventions,
         };
-        const pdfBlob = normalizeOtType(ordre.type) === 'preventif'
-          ? await generateOTPdfReact(ordreForPdf, { download: false })
-          : await generateOTCPdfReact(ordreForPdf, { download: false });
+        const pdfBlob = pdfTemplate === 'classic'
+          ? await generateOTPdf(ordreForPdf, { download: false })
+          : normalizeOtType(ordre.type) === 'preventif'
+            ? await generateOTPdfReact(ordreForPdf, { download: false })
+            : await generateOTCPdfReact(ordreForPdf, { download: false });
 
         zip.file(buildPdfFileName(ordre, index), pdfBlob);
         setPdfProgress({ current: index + 1, total: matchingOrdres.length });
       }
 
       const zipBlob = await zip.generateAsync({ type: 'blob' });
-      downloadBlob(zipBlob, buildZipFileName(pdfFilters));
+      downloadBlob(zipBlob, buildZipFileName(pdfFilters, pdfTemplate));
       setShowPdfModal(false);
     } catch (err) {
       console.error('Erreur génération PDF admin:', err);
@@ -815,11 +821,18 @@ export default function AdminPanel() {
         color: 'indigo' as const
       },
       {
-        onClick: openPdfModal,
+        onClick: () => openPdfModal('react'),
         icon: <Download size={20} />,
         title: 'Télécharger PDF OT',
         description: 'Exporter les OT filtrés dans un ZIP',
         color: 'orange' as const
+      },
+      {
+        onClick: () => openPdfModal('classic'),
+        icon: <FileSpreadsheet size={20} />,
+        title: 'PDF OT classique',
+        description: 'Exporter en masse avec le template jsPDF',
+        color: 'blue' as const
       }
     ];
 
@@ -962,9 +975,13 @@ export default function AdminPanel() {
           <div className="w-full max-w-xl rounded-lg bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Télécharger les PDF OT</h3>
+                <h3 className="text-lg font-bold text-slate-900">
+                  {pdfTemplate === 'classic' ? 'Télécharger les PDF OT classiques' : 'Télécharger les PDF OT'}
+                </h3>
                 <p className="text-sm text-slate-600">
-                  Filtrer les OT avant génération du ZIP.
+                  {pdfTemplate === 'classic'
+                    ? 'Génération en masse avec le template generateOTPdf.ts.'
+                    : 'Filtrer les OT avant génération du ZIP.'}
                 </p>
               </div>
               <button
@@ -1434,11 +1451,12 @@ function buildPdfFileName(ordre: OrdreTravailDetail, index: number) {
   return `${String(index + 1).padStart(3, '0')}_${prefix}_${numot}_${machineName}.pdf`;
 }
 
-function buildZipFileName(filters: PdfFilters) {
+function buildZipFileName(filters: PdfFilters, template: PdfTemplate) {
   const start = filters.dateDebut || 'debut';
   const end = filters.dateFin || 'fin';
+  const suffix = template === 'classic' ? '_classique' : '';
 
-  return `OT_${start}_${end}.zip`;
+  return `OT_${start}_${end}${suffix}.zip`;
 }
 
 function sanitizeFileName(value: string) {
