@@ -824,15 +824,8 @@ export default function AdminPanel() {
         onClick: () => openPdfModal('react'),
         icon: <Download size={20} />,
         title: 'Télécharger PDF OT',
-        description: 'Exporter les OT filtrés dans un ZIP',
+        description: 'Choisir un template et exporter les OT',
         color: 'orange' as const
-      },
-      {
-        onClick: () => openPdfModal('classic'),
-        icon: <FileSpreadsheet size={20} />,
-        title: 'PDF OT classique',
-        description: 'Exporter en masse avec le template jsPDF',
-        color: 'blue' as const
       }
     ];
 
@@ -975,13 +968,9 @@ export default function AdminPanel() {
           <div className="w-full max-w-xl rounded-lg bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">
-                  {pdfTemplate === 'classic' ? 'Télécharger les PDF OT classiques' : 'Télécharger les PDF OT'}
-                </h3>
+                <h3 className="text-lg font-bold text-slate-900">Télécharger les PDF OT</h3>
                 <p className="text-sm text-slate-600">
-                  {pdfTemplate === 'classic'
-                    ? 'Génération en masse avec le template generateOTPdf.ts.'
-                    : 'Filtrer les OT avant génération du ZIP.'}
+                  Choisir le template et filtrer les OT avant génération du ZIP.
                 </p>
               </div>
               <button
@@ -995,6 +984,26 @@ export default function AdminPanel() {
             </div>
 
             <div className="space-y-4 px-5 py-4">
+              <fieldset disabled={generatingPdf}>
+                <legend className="mb-2 text-sm font-semibold text-slate-700">Template PDF</legend>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setPdfTemplate('react')}
+                    className={`rounded-lg border-2 p-3 text-left transition-colors ${pdfTemplate === 'react' ? 'border-orange-500 bg-orange-50 text-orange-800' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`}
+                  >
+                    <span className="block text-sm font-bold">Template moderne</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPdfTemplate('classic')}
+                    className={`rounded-lg border-2 p-3 text-left transition-colors ${pdfTemplate === 'classic' ? 'border-orange-500 bg-orange-50 text-orange-800' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`}
+                  >
+                    <span className="block text-sm font-bold">Template classique</span>
+                  </button>
+                </div>
+              </fieldset>
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="space-y-1">
                   <span className="text-sm font-semibold text-slate-700">Date début</span>

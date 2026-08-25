@@ -17,7 +17,7 @@ function checkPageBreak(doc: jsPDF, yPosition: number, requiredSpace: number, ma
 function drawSignatures(doc: jsPDF, pageWidth: number, pageHeight: number, margin: number, technicienNom: string, dateSignature: string) {
   const signWidth = 60
   const signHeight = 19
-  const signatureBlockHeight = 35
+  const signatureBlockHeight = 23
   const signY = pageHeight - margin - signatureBlockHeight
 
   doc.setDrawColor(0)
@@ -172,10 +172,6 @@ export async function generateOTPdf(
   doc.text(`n° : ${ordre.numot}`, pageWidth - margin - 40, yPosition)
 
   yPosition += 3
-  doc.setFontSize(7)
-  doc.text(`Etat : 0 A faire`, margin, yPosition)
-
-  yPosition += 2
   doc.setDrawColor(0)
   doc.setLineWidth(0.3)
   doc.line(margin, yPosition, pageWidth - margin, yPosition)
@@ -201,10 +197,6 @@ export async function generateOTPdf(
     if (client?.raison_sociale) {
       doc.text('R.S: ' + client.raison_sociale, pageWidth - margin - 50, yPosition)
     }
-
-    yPosition += 4
-    doc.setFont('BahijTheSansArabic', 'bold')
-    doc.text(`Type intervention : ${ordre?.type + ' ' + 'systématique' || 'N/A'}`, margin, yPosition)
 
     yPosition += 4
     doc.setFont('BahijTheSansArabic', 'bold')
@@ -323,15 +315,15 @@ export async function generateOTPdf(
     doc.setFillColor(248, 250, 252)
     doc.setDrawColor(203, 213, 225)
     doc.setLineWidth(0.3)
-    doc.rect(margin, yPosition, pageWidth - 2 * margin, 14, 'FD')
+    doc.rect(margin, yPosition, pageWidth - 2 * margin, 10, 'FD')
 
     doc.setFontSize(7.5)
     doc.setFont('BahijTheSansArabic', 'bold')
     doc.setTextColor(71, 85, 105)
-    doc.text('LÉGENDE DES STATUTS', margin + 2, yPosition + 3.5)
+    doc.text('LÉGENDE DES STATUTS', margin + 2, yPosition + 3)
 
     const checkboxSize = 4
-    const symbolY = yPosition + 11
+    const symbolY = yPosition + 7.5
 
     doc.setDrawColor(0)
     doc.rect(margin + 4, symbolY - 2.7, checkboxSize, checkboxSize)
@@ -357,7 +349,7 @@ export async function generateOTPdf(
 
     doc.setTextColor(0, 0, 0)
     doc.setDrawColor(0)
-    yPosition += 14
+    yPosition += 10
   }
 
   yPosition += 1
@@ -409,23 +401,32 @@ export async function generateOTPdf(
       { content: 'ETAT COMPLET RENDU', styles: { halign: 'center', cellWidth: 40 } }
     ]
 
-    const tableData = etapesAvecStatut.map(({ etape }) => {
-      let description = etape.description
+    const descriptionWidth = tableWidth - 63 - 4
+    const tableRows = etapesAvecStatut.map(({ etape }, index) => {
+      const descriptionLines = doc.splitTextToSize(etape.description, descriptionWidth)
+      const outilLines = etape.outil
+        ? doc.splitTextToSize(`[Outil: ${etape.outil}]`, descriptionWidth)
+        : []
+      const securiteLines = etape.consigne_securite
+        ? doc.splitTextToSize(`[!] ${etape.consigne_securite}`, descriptionWidth)
+        : []
+      const contentHeight = descriptionLines.length * 3
+        + (outilLines.length + securiteLines.length) * 2.4
+        + 2.2
 
-      if (etape.outil) {
-        description += `\n[Outil: ${etape.outil}]`
-      }
-      if (etape.consigne_securite) {
-        description += `\n[!] ${etape.consigne_securite}`
-      }
-
-      return [
-        { content: etape.ordre.toString().padStart(2, '0'), styles: { halign: 'center', fontStyle: 'bold' } },
-        { content: description, styles: { fontSize: 7 } },
+      return {
+        descriptionLines,
+        outilLines,
+        securiteLines,
+        cells: [
+        { content: (index + 1).toString().padStart(2, '0'), styles: { halign: 'center', fontStyle: 'bold' } },
+        { content: '', styles: { fontSize: 7, minCellHeight: Math.max(5, contentHeight) } },
         { content: etape.duree_estimee ? `${etape.duree_estimee}min` : '-', styles: { halign: 'center' } },
         { content: '', styles: { halign: 'center' } }
-      ]
+        ]
+      }
     })
+    const tableData = tableRows.map((row) => row.cells)
 
 
     autoTable(doc, {
@@ -435,7 +436,8 @@ export async function generateOTPdf(
       theme: 'grid',
       styles: {
         fontSize: 7,
-        cellPadding: 2,
+        cellPadding: { top: 0.7, right: 2, bottom: 0.7, left: 2 },
+        minCellHeight: 5,
         lineColor: [200, 200, 200],
         lineWidth: 0.1
       },
@@ -453,6 +455,28 @@ export async function generateOTPdf(
       margin: { left: margin, right: margin, bottom: 50 },
       showHead: 'everyPage',
       didDrawCell: (data) => {
+        if (data.section === 'body' && data.column.index === 1) {
+          const rowContent = tableRows[data.row.index]
+          let textY = data.cell.y + 3.2
+
+          doc.setFont('BahijTheSansArabic', 'normal')
+          doc.setFontSize(7)
+          doc.setTextColor(0, 0, 0)
+          doc.text(rowContent.descriptionLines, data.cell.x + 2, textY)
+          textY += rowContent.descriptionLines.length * 3
+
+          doc.setFontSize(5.5)
+          doc.setTextColor(100, 116, 139)
+          if (rowContent.outilLines.length > 0) {
+            doc.text(rowContent.outilLines, data.cell.x + 2, textY)
+            textY += rowContent.outilLines.length * 2.4
+          }
+          if (rowContent.securiteLines.length > 0) {
+            doc.text(rowContent.securiteLines, data.cell.x + 2, textY)
+          }
+          doc.setTextColor(0, 0, 0)
+        }
+
         if (data.section === 'body' && data.column.index === 3) {
           const checkboxSize = 3
 
@@ -536,7 +560,7 @@ export async function generateOTPdf(
     yPosition += commentaireLines.length * 3 + 3
   }
 
-  const signatureBlockHeight = 40
+  const signatureBlockHeight = 28
   if (yPosition > pageHeight - margin - signatureBlockHeight - 5) {
     doc.addPage()
   }
