@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { getOtStatusLabel, normalizeOtStatus } from '../../utils/otStatus';
 import { 
   Wrench, 
   Calendar, 
@@ -24,7 +25,7 @@ interface OrdreTravail {
   technicien_id: string | null;
   date_programmee: string;
   date_realisation: string | null;
-  statut: 'prévu' | 'en_cours' | 'terminé' | 'annulé';
+  statut: 'prévu' | 'en_cours' | 'terminé' | 'clôturé_avec_anomalie' | 'annulé';
   observations: string | null;
   cause: string | null;
   type: string;
@@ -185,6 +186,7 @@ export default function OTCorrectifsList() {
       'prévu': 'bg-blue-100 text-blue-800 border-blue-200',
       'en_cours': 'bg-yellow-100 text-yellow-800 border-yellow-200',
       'terminé': 'bg-green-100 text-green-800 border-green-200',
+      'clôturé_avec_anomalie': 'bg-orange-100 text-orange-800 border-orange-200',
       'annulé': 'bg-red-100 text-red-800 border-red-200'
     };
 
@@ -192,15 +194,20 @@ export default function OTCorrectifsList() {
       'prévu': Clock,
       'en_cours': AlertCircle,
       'terminé': CheckCircle2,
+      'clôturé_avec_anomalie': AlertCircle,
       'annulé': AlertCircle
     };
 
-    const Icon = icons[statut as keyof typeof icons] || Clock;
+    const normalizedStatus = normalizeOtStatus(statut);
+    const Icon = normalizedStatus ? icons[normalizedStatus] : Clock;
+    const style = normalizedStatus
+      ? styles[normalizedStatus]
+      : 'bg-slate-100 text-slate-800 border-slate-200';
 
     return (
-      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${styles[statut as keyof typeof styles]}`}>
+      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${style}`}>
         <Icon className="w-3 h-3" />
-        {statut.replace('_', ' ')}
+        {getOtStatusLabel(statut)}
       </span>
     );
   };
@@ -332,6 +339,7 @@ export default function OTCorrectifsList() {
                   <option value="prévu">À faire</option>
                   <option value="en_cours">En cours</option>
                   <option value="terminé">Clôturé</option>
+                  <option value="clôturé_avec_anomalie">Clôturé avec anomalie</option>
                   <option value="annulé">Annulés</option>
                 </select>
               </div>
@@ -384,7 +392,7 @@ export default function OTCorrectifsList() {
               </div>
               <div className="rounded-lg border border-green-100 bg-green-50 p-3 md:p-4">
                 <div className="text-2xl font-bold text-green-600">
-                  {ordres.filter(o => o.statut === 'terminé').length}
+                  {ordres.filter(o => o.statut === 'terminé' || o.statut === 'clôturé_avec_anomalie').length}
                 </div>
                 <div className="text-sm text-green-600 mt-1">Clôturés</div>
               </div>

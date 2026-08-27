@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Clock, PlayCircle, CheckCircle2, ClipboardList, 
-  AlertCircle, Calendar, Wrench, Settings, ChevronRight 
+  AlertCircle, Calendar, Wrench, Settings, ChevronRight, XCircle
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import TechnicienLayout from '../components/TechnicienLayout';
+import { getOtStatusLabel, normalizeOtStatus } from '../utils/otStatus';
+import { getInterventionValidationLabel } from '../utils/interventionStatus';
 
 interface OrdreTravail {
   id: string;
@@ -93,8 +95,14 @@ export default function TechnicienDashboard() {
       'prévu': { label: 'À faire', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: Clock },
       'en_cours': { label: 'En cours', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: PlayCircle },
       'terminé': { label: 'Clôturé', color: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle2 },
+      'clôturé_avec_anomalie': { label: 'Clôturé avec anomalie', color: 'bg-orange-100 text-orange-800 border-orange-200', icon: AlertCircle },
+      'annulé': { label: 'Annulé', color: 'bg-red-100 text-red-800 border-red-200', icon: XCircle },
     };
-    return configs[statut] || configs['prévu'];
+    const normalizedStatus = normalizeOtStatus(statut);
+    const config = normalizedStatus ? configs[normalizedStatus] : undefined;
+    return config
+      ? { ...config, label: getOtStatusLabel(normalizedStatus) }
+      : { label: getOtStatusLabel(statut), color: 'bg-slate-100 text-slate-800 border-slate-200', icon: Clock };
   };
 
   const getTypeConfig = (type: string) => {
@@ -275,12 +283,12 @@ export default function TechnicienDashboard() {
                         {ot.interventions.some(i => i.valide === true) ? (
                           <>
                             <CheckCircle2 size={12} className="text-green-600" />
-                            <span className="font-semibold text-green-700">Intervention validée</span>
+                            <span className="font-semibold text-green-700">{getInterventionValidationLabel(true, 'admin')}</span>
                           </>
                         ) : (
                           <>
                             <AlertCircle size={12} className="text-amber-600" />
-                            <span className="font-semibold text-amber-700">En attente de validation</span>
+                            <span className="font-semibold text-amber-700">{getInterventionValidationLabel(false, 'admin')}</span>
                           </>
                         )}
                       </div>

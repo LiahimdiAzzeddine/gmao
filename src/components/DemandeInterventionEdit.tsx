@@ -57,6 +57,14 @@ export default function DemandeInterventionEdit() {
           time: plan.time || '09:00',
           dtstart: plan.dtstart?.split('T')[0] || today,
         });
+      } else if (data.type_intervention === 'preventive') {
+        setPlanningData({
+          frequency: 'monthly',
+          week_of_month: 1,
+          day_of_week: 'monday',
+          time: '09:00',
+          dtstart: today,
+        });
       }
 
       setLoading(false);
@@ -68,8 +76,10 @@ export default function DemandeInterventionEdit() {
   useEffect(() => {
     if (demandeData?.machine_ids.length && demandeData.type_intervention === 'preventive') {
       checkExistingPreventives(demandeData.machine_ids);
+    } else {
+      setExistingPreventives([]);
     }
-  }, [demandeData]);
+  }, [demandeData?.type_intervention, demandeData?.machine_ids.join(','), id]);
 
   async function checkExistingPreventives(machineIds: string[]) {
     setCheckingPreventive(true);
@@ -171,6 +181,22 @@ function generateRRule(): string {
     }
   }, [planningData, demandeData?.type_intervention]);
 
+  function handleTypeChange(type: DemandeData['type_intervention']) {
+    if (!demandeData) return;
+
+    setDemandeData({ ...demandeData, type_intervention: type });
+
+    if (type === 'preventive' && !planningData) {
+      setPlanningData({
+        frequency: 'monthly',
+        week_of_month: 1,
+        day_of_week: 'monday',
+        time: '09:00',
+        dtstart: today,
+      });
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!demandeData) return;
@@ -189,6 +215,7 @@ function generateRRule(): string {
       const updateObj: any = {
         label: demandeData.label,
         description: demandeData.description,
+        type_intervention: demandeData.type_intervention,
       };
 
       if (demandeData.type_intervention === 'corrective') {
@@ -205,17 +232,28 @@ function generateRRule(): string {
       // Mise à jour planning si préventive
       if (demandeData.type_intervention === 'preventive' && planningData) {
         const rruleString = generateRRule();
-        await supabase
+        const { error: planningError } = await supabase
           .from('maintenance_planning')
-          .update({
+          .upsert({
+            demande_id: id,
+            machine_id: demandeData.machine_ids[0],
+            created_by: userId || null,
             frequency: planningData.frequency,
             week_of_month: planningData.week_of_month,
             day_of_week: planningData.day_of_week,
             time: planningData.time,
             dtstart: planningData.dtstart,
             rrule: rruleString,
-          })
+          }, { onConflict: 'demande_id' });
+
+        if (planningError) throw planningError;
+      } else if (demandeData.type_intervention === 'corrective') {
+        const { error: planningDeleteError } = await supabase
+          .from('maintenance_planning')
+          .delete()
           .eq('demande_id', id);
+
+        if (planningDeleteError) throw planningDeleteError;
       }
 
       alert('Demande mise à jour avec succès !');
@@ -285,17 +323,19 @@ function generateRRule(): string {
             />
           </div>
 
-          {/* Type d'intervention readonly */}
+          {/* Type d'intervention */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Type d'intervention
             </label>
-            <input
-              type="text"
+            <select
               value={demandeData.type_intervention}
-              readOnly
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-slate-50 cursor-not-allowed"
-            />
+              onChange={(e) => handleTypeChange(e.target.value as DemandeData['type_intervention'])}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            >
+              <option value="corrective">Corrective</option>
+              <option value="preventive">Préventive</option>
+            </select>
           </div>
 
           {/* Urgence (corrective only) */}

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { generateInterventionPDF } from '../services/pdfGenerator';
+import { getInterventionValidationLabel } from './interventionStatus';
 
 interface InterventionData {
   id: string;
@@ -65,7 +66,7 @@ export async function generateInterventionPDFFromNew(interventionId: string) {
                     intervention.ordre_travail?.machine?.localisation || 'N/A',
       intervention_type: intervention.ordre_travail?.type || 'N/A',
       type_action: 'Maintenance',
-      status: intervention.valide ? 'Validée' : 'En attente',
+      status: getInterventionValidationLabel(intervention.valide, 'admin'),
       // Convertir les tableaux d'URLs en JSON strings comme attendu par le générateur
       image_avant_url: intervention.image_avant_urls && intervention.image_avant_urls.length > 0 
                       ? JSON.stringify(intervention.image_avant_urls) 

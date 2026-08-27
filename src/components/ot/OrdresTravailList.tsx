@@ -8,6 +8,7 @@ import { renderRecurrence } from '../../utils/renderRecurrence'
 import { TypeOt } from '../../types/ot'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
+import { getOtStatusLabel } from '../../utils/otStatus'
 
 // Composant principal
 type OrdresTravailListProps = {
@@ -306,12 +307,12 @@ export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false,
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Rechercher Machine</label>
+              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Recherche</label>
               <input
                 type="text"
                 value={filters.machineSearch}
                 onChange={(e) => updateFilter('machineSearch', e.target.value)}
-                placeholder="Nom ou modèle..."
+                placeholder="#ID, n° OT, machine ou modèle..."
                 className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white hover:border-gray-400"
               />
             </div>
@@ -491,6 +492,7 @@ export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false,
               <table className="w-full">
                 <thead className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
                   <tr>
+                    <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">OT</th>
                     <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">Machine</th>
                     <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">Client</th>
                     <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">Type</th>
@@ -513,6 +515,10 @@ export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false,
                       onClick={() => navigate(`/ordres-travail/${ot.id}`)}
                       className="hover:bg-orange-50 cursor-pointer transition-colors group"
                     >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-bold text-gray-900">#{ot.id.slice(0, 8)}</div>
+                        {ot.numot && <div className="mt-0.5 text-xs text-gray-500">N° {ot.numot}</div>}
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="font-semibold text-gray-900 text-sm group-hover:text-orange-600 transition-colors">
@@ -574,11 +580,7 @@ export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false,
                         <div className="flex items-center gap-2">
                           <StatutIcon className="w-4 h-4" style={{ color: statutConfig.iconColor }} />
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statutConfig.bgLight} ${statutConfig.textColor} border ${statutConfig.borderColor}`}>
-                            {ot.statut === 'prévu' && 'À faire'}
-                            {ot.statut === 'en_cours' && 'En cours'}
-                            {ot.statut === 'terminé' && 'Clôturé'}
-                            {ot.statut === 'clôturé_avec_anomalie' && 'Avec anomalie'}
-                            {ot.statut === 'annulé' && 'Annulé'}
+                            {getOtStatusLabel(ot.statut)}
                           </span>
                         </div>
                       </td>

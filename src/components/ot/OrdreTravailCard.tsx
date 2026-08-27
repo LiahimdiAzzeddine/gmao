@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { Calendar, User, Trash2 } from 'lucide-react'
 import { TypePlan } from '../../hooks/useOrdresTravail'
 import { renderRecurrence } from '../../utils/renderRecurrence'
+import { getOtStatusLabel } from '../../utils/otStatus'
 
 interface Props {
   ot: any
@@ -38,6 +39,9 @@ export default function OrdreTravailCard({
         
         <div className="relative flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
+            <p className="mb-1 text-xs font-bold text-white/90">
+              #{ot.id.slice(0, 8)}{ot.numot ? ` · N° ${ot.numot}` : ''}
+            </p>
             <h3 className="font-bold text-sm sm:text-base mb-1 line-clamp-1 text-white">
               {machine?.nom || 'Machine inconnue'}
             </h3>
@@ -126,11 +130,7 @@ export default function OrdreTravailCard({
               ot.statut === 'clôturé_avec_anomalie' ? 'bg-red-500' :
               'bg-gray-500'
             } animate-pulse`}></div>
-            {ot.statut === 'prévu' && 'À faire'}
-            {ot.statut === 'en_cours' && 'En cours'}
-            {ot.statut === 'terminé' && 'Clôturé'}
-            {ot.statut === 'clôturé_avec_anomalie' && 'Avec anomalie'}
-            {ot.statut === 'annulé' && 'Annulé'}
+            {getOtStatusLabel(ot.statut)}
           </div>
         </div>
       </div>

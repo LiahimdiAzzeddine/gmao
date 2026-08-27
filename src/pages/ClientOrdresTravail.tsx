@@ -21,6 +21,8 @@ import EmptyState from '../components/Ui/EmptyState';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import ClientOtPdfDownloadButton from '../components/ClientOtPdfDownloadButton';
+import { getOtStatusLabel, isOtClosed } from '../utils/otStatus';
+import { getInterventionValidationConfig, getInterventionValidationLabel } from '../utils/interventionStatus';
 
 type ClientOT = {
   id: string;
@@ -56,8 +58,6 @@ type ClientOT = {
     client_valide: boolean;
   }>;
 };
-
-const closedStatuses = ['terminé', 'clôturé_avec_anomalie'];
 
 function formatDate(dateString: string | null) {
   if (!dateString) return 'Non définie';
@@ -98,11 +98,13 @@ function getStatusConfig(statut: string) {
     },
   };
 
-  return configs[statut] || {
+  const config = configs[statut] || {
     label: statut || 'Inconnu',
     icon: Clock,
     className: 'bg-slate-100 text-slate-700 border-slate-200',
   };
+
+  return { ...config, label: getOtStatusLabel(statut) };
 }
 
 function getTypeClass(type: string) {
@@ -232,7 +234,7 @@ export default function ClientOrdresTravail() {
     total: ordres.length,
     aFaire: ordres.filter((ot) => ot.statut === 'prévu').length,
     enCours: ordres.filter((ot) => ot.statut === 'en_cours').length,
-    clotures: ordres.filter((ot) => closedStatuses.includes(ot.statut)).length,
+    clotures: ordres.filter((ot) => isOtClosed(ot.statut)).length,
   };
 
   const resetFilters = () => {
@@ -444,6 +446,7 @@ function OTRow({ ot, onOpen }: { ot: ClientOT; onOpen: () => void }) {
   const status = getStatusConfig(ot.statut);
   const StatusIcon = status.icon;
   const intervention = ot.interventions?.[0] || null;
+  const interventionValidation = getInterventionValidationConfig(intervention?.valide, 'admin');
 
   return (
     <tr className="hover:bg-slate-50 transition-colors">
@@ -489,13 +492,9 @@ function OTRow({ ot, onOpen }: { ot: ClientOT; onOpen: () => void }) {
       </td>
       <td className="px-4 py-3">
         {intervention ? (
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
-            intervention.valide
-              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-              : 'bg-amber-100 text-amber-800 border-amber-200'
-          }`}>
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${interventionValidation.className}`}>
             {intervention.valide ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-            {intervention.valide ? 'Validée' : 'En attente'}
+            {interventionValidation.label}
           </span>
         ) : (
           <span className="text-sm text-slate-400">-</span>
@@ -554,7 +553,7 @@ function OTCard({ ot, onOpen }: { ot: ClientOT; onOpen: () => void }) {
         {intervention && (
           <div className="flex items-center gap-2 text-slate-700">
             {intervention.valide ? <CheckCircle2 size={14} className="text-emerald-600" /> : <AlertCircle size={14} className="text-amber-600" />}
-            {intervention.valide ? 'Intervention validée' : 'Intervention en attente'}
+            {getInterventionValidationLabel(intervention.valide, 'admin')}
           </div>
         )}
       </div>

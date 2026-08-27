@@ -28,6 +28,7 @@ import { generateOTPdfReact } from '../utils/generateOTPdfReact';
 import { generateOTCPdfReact } from '../utils/generateOTCPdfReact';
 import { generateOTPdf } from '../utils/generateOTPdf';
 import type { OrdreTravailDetail } from '../types/ot';
+import { getInterventionValidationConfig } from '../utils/interventionStatus';
 
 type ClientIntervention = {
   id: string;
@@ -927,6 +928,7 @@ function InterventionRow({
   const ot = intervention.ordre_travail;
   const result = getResultConfig(intervention.resultat);
   const ResultIcon = result.icon;
+  const adminValidation = getInterventionValidationConfig(intervention.valide, 'admin');
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const handleDownloadPdf = async () => {
@@ -1002,13 +1004,9 @@ function InterventionRow({
         </span>
       </td>
       <td className="px-4 py-3">
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
-          intervention.valide
-            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-            : 'bg-amber-100 text-amber-800 border-amber-200'
-        }`}>
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${adminValidation.className}`}>
           {intervention.valide ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-          {intervention.valide ? 'Validée' : 'En attente'}
+          {adminValidation.label}
         </span>
       </td>
       <td className="px-4 py-3 w-[180px]">
@@ -1053,6 +1051,7 @@ function InterventionCard({
   const ot = intervention.ordre_travail;
   const result = getResultConfig(intervention.resultat);
   const ResultIcon = result.icon;
+  const adminValidation = getInterventionValidationConfig(intervention.valide, 'admin');
 
   return (
     <div className="rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-md">
@@ -1096,12 +1095,12 @@ function InterventionCard({
             {intervention.valide ? (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <CheckCircle2 size={12} />
-                Admin validée
+                {adminValidation.label}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                 <AlertCircle size={12} />
-                En attente
+                {adminValidation.label}
               </span>
             )}
           </div>
@@ -1148,7 +1147,7 @@ function ClientValidationStatus({
           title={hasCommentaire ? 'Cliquer pour voir le commentaire' : undefined}
         >
           <CheckCircle2 size={12} />
-          Validée
+          {getInterventionValidationConfig(true, 'client').label}
           {hasCommentaire && <MessageSquare size={11} className="text-emerald-600" />}
         </button>
 

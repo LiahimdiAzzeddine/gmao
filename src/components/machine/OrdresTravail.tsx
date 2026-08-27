@@ -12,6 +12,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { generateOTPdfReact } from '../../utils/generateOTPdfReact';
 import { generateOTCPdfReact } from '../../utils/generateOTCPdfReact';
 import ClientInterventionValidationModal from '../ClientInterventionValidationModal';
+import { getOtStatusLabel } from '../../utils/otStatus';
+import { getInterventionValidationLabel } from '../../utils/interventionStatus';
 
 interface OrdreTravail {
   id: string;
@@ -248,6 +250,12 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
         color: 'bg-green-100 text-green-800 border-green-200',
         bgColor: 'bg-green-50',
         textColor: 'text-green-700'
+      },
+      'clôturé_avec_anomalie': {
+        icon: <AlertCircle size={18} />,
+        color: 'bg-orange-100 text-orange-800 border-orange-200',
+        bgColor: 'bg-orange-50',
+        textColor: 'text-orange-700'
       },
       'annulé': {
         icon: <XCircle size={18} />,
@@ -503,7 +511,7 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
       return {
         canStart: false,
         showStartButton: false,
-        statusMessage: 'Intervention validée',
+        statusMessage: getInterventionValidationLabel(true, 'admin'),
         statusColor: 'bg-green-100 text-green-800 border-green-200'
       };
     }
@@ -639,6 +647,7 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
                 <option value="prévu">À faire</option>
                 <option value="en_cours">En cours</option>
                 <option value="terminé">Clôturé</option>
+                <option value="clôturé_avec_anomalie">Clôturé avec anomalie</option>
                 <option value="annulé">Annulé</option>
               </select>
             </div>
@@ -707,10 +716,7 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
                     <div className="flex items-center justify-between">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${statutConfig.color}`}>
                         {React.cloneElement(statutConfig.icon as React.ReactElement, { size: 12 })}
-                        {ot.statut === 'prévu' ? 'À faire' : 
-                         ot.statut === 'en_cours' ? 'En cours' : 
-                         ot.statut === 'terminé' ? 'Clôturé' : 
-                         'Annulé'}
+                        {getOtStatusLabel(ot.statut)}
                       </span>
                     </div>
                   </div>
@@ -747,11 +753,11 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
 
                     {ordreState.statusMessage && (
                       <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold ${
-                        ordreState.statusMessage === 'Intervention validée' 
+                        ordreState.statusMessage === getInterventionValidationLabel(true, 'admin')
                           ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
                           : 'bg-amber-100 text-amber-800 border border-amber-200'
                       }`}>
-                        {ordreState.statusMessage === 'Intervention validée' ? (
+                        {ordreState.statusMessage === getInterventionValidationLabel(true, 'admin') ? (
                           <CheckCircle2 size={12} />
                         ) : (
                           <AlertCircle size={12} />
@@ -905,10 +911,7 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
                             {React.cloneElement(statutConfig.icon as React.ReactElement, { 
                               size: 14
                             })}
-                            {ot.statut === 'prévu' ? 'À faire' : 
-                             ot.statut === 'en_cours' ? 'En cours' : 
-                             ot.statut === 'terminé' ? 'Clôturé' : 
-                             'Annulé'}
+                            {getOtStatusLabel(ot.statut)}
                           </span>
                         </td>
 
@@ -942,11 +945,11 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
                         <td className="px-4 py-3">
                           {ordreState.statusMessage ? (
                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                              ordreState.statusMessage === 'Intervention validée' 
+                              ordreState.statusMessage === getInterventionValidationLabel(true, 'admin')
                                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
                                 : 'bg-amber-100 text-amber-800 border border-amber-200'
                             }`}>
-                              {ordreState.statusMessage === 'Intervention validée' ? (
+                              {ordreState.statusMessage === getInterventionValidationLabel(true, 'admin') ? (
                                 <CheckCircle2 size={12} />
                               ) : (
                                 <AlertCircle size={12} />
@@ -1021,7 +1024,7 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
                                           ? 'bg-green-100 text-green-800' 
                                           : 'bg-yellow-100 text-yellow-800'
                                       }`}>
-                                        {ot.intervention.valide ? 'Validée' : 'En attente'}
+                                        {getInterventionValidationLabel(ot.intervention.valide, 'admin')}
                                       </span>
                                     </div>
                                     {ot.intervention.valide && ot.intervention.valide_le && (

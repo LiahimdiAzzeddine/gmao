@@ -25,6 +25,7 @@ import ClientInterventionValidationModal from '../components/ClientInterventionV
 import { generateOTPdfReact } from '../utils/generateOTPdfReact';
 import { generateOTCPdfReact } from '../utils/generateOTCPdfReact';
 import type { OrdreTravailDetail } from '../types/ot';
+import { getInterventionValidationLabel } from '../utils/interventionStatus';
 
 type EtapeGammeAffichee = {
   etape_id?: string;
@@ -456,7 +457,7 @@ export default function ClientInterventionDetails() {
                     <AlertCircle size={16} className="text-amber-600" />
                   )}
                   <span className="text-sm font-semibold text-slate-700">
-                    {intervention.valide ? 'Validée par admin' : 'En attente admin'}
+                    {getInterventionValidationLabel(intervention.valide, 'admin')}
                   </span>
                 </div>
                 {intervention.valide && intervention.valide_le && (
@@ -474,7 +475,7 @@ export default function ClientInterventionDetails() {
                     <AlertCircle size={16} className="text-amber-600" />
                   )}
                   <span className="text-sm font-semibold text-slate-700">
-                    {intervention.client_valide ? 'Validée par client' : 'En attente client'}
+                    {getInterventionValidationLabel(intervention.client_valide, 'client')}
                   </span>
                 </div>
                 {intervention.client_valide && intervention.commentaire_client && (

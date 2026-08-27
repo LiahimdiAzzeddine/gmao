@@ -5,6 +5,7 @@ import { Alert } from './Alert';
 import Loading from './Ui/Loading';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { getInterventionValidationLabel } from '../utils/interventionStatus';
 
 interface BonPDFAppNewProps {
   interventionId: string;
@@ -199,7 +200,7 @@ export default function BonPDFAppNew({ interventionId, onClose }: BonPDFAppNewPr
                   <div className="flex items-center">
                     <span className="font-semibold text-gray-700 min-w-[90px]">Statut :</span>
                     <span className="px-3 py-1 rounded-full text-xs font-medium text-white shadow-sm" style={{ backgroundColor: '#f15c00' }}>
-                      {intervention.valide ? 'Validée' : 'En attente'}
+                      {getInterventionValidationLabel(intervention.valide, 'admin')}
                     </span>
                   </div>
                   <div className="flex">

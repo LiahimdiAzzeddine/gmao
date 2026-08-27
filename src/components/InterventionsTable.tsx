@@ -8,6 +8,8 @@ import ReplanificationModal from './ReplanificationModal';
 import DualActionModal from './DualActionModal';
 import CorrectifModal from './CorrectifModal';
 import type { PlanActionFormData } from './PlanActionValidationModal';
+import { getOtStatusLabel } from '../utils/otStatus';
+import { getInterventionValidationConfig, getInterventionValidationLabel } from '../utils/interventionStatus';
 
 interface Intervention {
     id: string;
@@ -306,6 +308,9 @@ const InterventionsTable: React.FC = () => {
             let matchingOtIds = allOtIds;
             let matchingTechnicianIds: string[] = [];
             const normalizedSearch = searchTerm.trim().toLocaleLowerCase('fr');
+            const normalizedInterventionId = normalizedSearch.replace(/^#/, '');
+            const isInterventionIdSearch = /^[0-9a-f-]{1,36}$/.test(normalizedInterventionId);
+            const interventionIdPrefix = normalizedInterventionId.slice(0, 8);
 
             if (normalizedSearch) {
                 const selectedClientName = `${selectedClient?.raison_sociale || ''} ${selectedClient?.prenom || ''}`.toLocaleLowerCase('fr');
@@ -318,7 +323,8 @@ const InterventionsTable: React.FC = () => {
                     matchingOtIds = (otData || [])
                         .filter((ot: any) => {
                             const gammeNom = ot.plan?.gamme?.nom || '';
-                            return matchingMachineIds.has(ot.machine_id) || gammeNom.toLocaleLowerCase('fr').includes(normalizedSearch);
+                            const matchesOtId = isInterventionIdSearch && ot.id.toLowerCase().startsWith(normalizedInterventionId);
+                            return matchesOtId || matchingMachineIds.has(ot.machine_id) || gammeNom.toLocaleLowerCase('fr').includes(normalizedSearch);
                         })
                         .map((ot: any) => ot.id);
 
@@ -331,7 +337,7 @@ const InterventionsTable: React.FC = () => {
                 }
             }
 
-            if (allOtIds.length === 0 || (matchingOtIds.length === 0 && matchingTechnicianIds.length === 0)) {
+            if (allOtIds.length === 0 || (matchingOtIds.length === 0 && matchingTechnicianIds.length === 0 && !isInterventionIdSearch)) {
                 if (version !== requestVersionRef.current) return;
                 setInterventions([]);
                 nextOffsetRef.current = 0;
@@ -385,6 +391,7 @@ const InterventionsTable: React.FC = () => {
                 const searchClauses: string[] = [];
                 if (matchingOtIds.length > 0) searchClauses.push(`ordre_travail_id.in.(${matchingOtIds.join(',')})`);
                 if (matchingTechnicianIds.length > 0) searchClauses.push(`technicien_id.in.(${matchingTechnicianIds.join(',')})`);
+                if (isInterventionIdSearch) searchClauses.push(`search_id.ilike.${interventionIdPrefix}%`);
                 interventionsQuery = interventionsQuery.or(searchClauses.join(','));
             }
             if (filterTechnicien !== 'all') {
@@ -1245,17 +1252,6 @@ const InterventionsTable: React.FC = () => {
         }
     };
 
-    const getStatutOTLabel = (statut: string): string => {
-        switch (statut) {
-            case 'prévu': return 'Prévu';
-            case 'en_cours': return 'En cours';
-            case 'terminé': return 'Clôturé';
-            case 'annulé': return 'Annulé';
-            case 'clôturé_avec_anomalie': return 'Clôturé avec anomalie';
-            default: return statut;
-        }
-    };
-
     const formatDate = (dateString: string): string => {
         if (!dateString) return '-';
         const date = new Date(dateString);
@@ -1484,7 +1480,7 @@ const InterventionsTable: React.FC = () => {
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
                             <input
                                 type="text"
-                                placeholder="Rechercher..."
+                                placeholder="Rechercher par #ID intervention/OT, machine, technicien, gamme..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-4 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
@@ -1584,6 +1580,9 @@ const InterventionsTable: React.FC = () => {
                                 <div className="p-3 border-b border-slate-200 bg-slate-50">
                                     <div className="flex items-start justify-between mb-2">
                                         <div className="flex-1">
+                                            <p className="mb-1 text-xs font-bold text-[#f98440]">
+                                                #{intervention.id.slice(0, 8)}
+                                            </p>
                                             <h3 className="text-sm font-bold text-slate-900">
                                                 {intervention.ordre_travail?.machine?.nom || 'N/A'}
                                             </h3>
@@ -1598,7 +1597,7 @@ const InterventionsTable: React.FC = () => {
                                     
                                     <div className="flex items-center justify-between">
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${getStatutOTColor(intervention.ordre_travail?.statut || '')}`}>
-                                            {getStatutOTLabel(intervention.ordre_travail?.statut || 'N/A')}
+                                            {getOtStatusLabel(intervention.ordre_travail?.statut)}
                                         </span>
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${getEtatMachineColor(intervention.etat_machine_apres)}`}>
                                             {getMachineStateConfig(intervention.etat_machine_apres).label}
@@ -1679,12 +1678,12 @@ const InterventionsTable: React.FC = () => {
                                                     {intervention.valide ? (
                                                         <span className="flex items-center gap-1 text-green-700 font-medium">
                                                             <CheckCircle size={12} />
-                                                            Validé
+                                                            {getInterventionValidationLabel(true, 'admin')}
                                                         </span>
                                                     ) : (
                                                         <span className="flex items-center gap-1 text-amber-700 font-medium">
                                                             <AlertTriangle size={12} />
-                                                            En attente
+                                                            {getInterventionValidationLabel(false, 'admin')}
                                                         </span>
                                                     )}
                                                 </span>
@@ -1750,6 +1749,9 @@ const InterventionsTable: React.FC = () => {
                             <thead className="bg-slate-50 border-b border-slate-200">
                                 <tr>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                                        Intervention
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                                         Machine
                                     </th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
@@ -1800,6 +1802,11 @@ const InterventionsTable: React.FC = () => {
                                         intervention.ordre_travail?.type === 'curatif' ? 'border-l-red-400' :
                                         'border-l-transparent'
                                     }`}>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className="text-sm font-bold text-[#f98440]">
+                                                #{intervention.id.slice(0, 8)}
+                                            </span>
+                                        </td>
                                         <td className="px-6 py-4">
                                             <div className="text-sm text-slate-900 font-medium">
                                                 {intervention.ordre_travail?.machine?.nom || 'N/A'}
@@ -1844,7 +1851,7 @@ const InterventionsTable: React.FC = () => {
                                             </div>
                                         </td> <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatutOTColor(intervention.ordre_travail?.statut || '')}`}>
-                                                {getStatutOTLabel(intervention.ordre_travail?.statut || 'N/A')}
+                                                {getOtStatusLabel(intervention.ordre_travail?.statut)}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -1895,7 +1902,7 @@ const InterventionsTable: React.FC = () => {
                                                     className="h-4 w-4 rounded border-slate-300 text-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                                                 />
                                                 <span className="text-xs text-slate-500">
-                                                    {intervention.valide ? 'Validé' : 'En attente'}
+                                                    {getInterventionValidationLabel(intervention.valide, 'admin')}
                                                 </span>
                                             </div>
                                             {intervention.valide && intervention.valide_le && (
@@ -2136,16 +2143,14 @@ function ClientValidationSummary({
     intervention
 }: {
     intervention: Pick<Intervention, 'client_valide'>;
+    compact?: boolean;
 }) {
+    const validation = getInterventionValidationConfig(intervention.client_valide, 'client');
     return (
         <div>
-            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                intervention.client_valide
-                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                    : 'bg-slate-100 text-slate-600 border-slate-200'
-            }`}>
+            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${validation.className}`}>
                 {intervention.client_valide ? <CheckCircle size={12} /> : <AlertTriangle size={12} />}
-                {intervention.client_valide ? 'Validé client' : 'Non validé client'}
+                {validation.label}
             </span>
         </div>
     );

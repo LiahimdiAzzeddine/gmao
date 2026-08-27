@@ -1,7 +1,8 @@
 import { AlertCircle, CheckCircle, Clock, XCircle } from "lucide-react"
 import { StatutOT, TypePlan, TypeRecurrence } from "../../hooks/useOrdresTravail"
+import { getOtStatusLabel, normalizeOtStatus } from "../../utils/otStatus"
 
-export const getStatutConfig = (statut: StatutOT) => {
+export const getStatutConfig = (statut: StatutOT | string) => {
     const configs = {
       prévu: {
         color: 'bg-orange-500',
@@ -39,7 +40,22 @@ export const getStatutConfig = (statut: StatutOT) => {
         icon: XCircle
       }
     }
-    return configs[statut] || configs.prévu
+    const normalizedStatus = normalizeOtStatus(statut)
+    if (!normalizedStatus) {
+      return {
+        color: 'bg-slate-500',
+        bgLight: 'bg-slate-50',
+        textColor: 'text-slate-700',
+        borderColor: 'border-slate-200',
+        icon: Clock,
+        label: getOtStatusLabel(statut),
+      }
+    }
+
+    return {
+      ...configs[normalizedStatus],
+      label: getOtStatusLabel(normalizedStatus),
+    }
   }
 
   export   const getTypePlanColor = (type: TypePlan) => {

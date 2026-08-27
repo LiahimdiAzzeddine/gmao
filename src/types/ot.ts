@@ -1,10 +1,11 @@
-import { StatutOT, TypeRecurrence } from "../hooks/useOrdresTravail"
+import type { TypeRecurrence } from "../hooks/useOrdresTravail"
+import type { OtStatus } from "../utils/otStatus"
 export type TypeOt = 'préventif' | 'correctif' | 'curatif'
-export type StatutType = 'prévu' | 'en_cours' | 'terminé' | 'annulé';
+export type StatutType = OtStatus;
 
 export interface OrdreTravail {
   id: string;
-  statut: 'prévu' | 'en_cours' | 'terminé' | 'annulé';
+  statut: OtStatus;
   plan_id: string;
   created_at: string;
   technicien: Technicien | null;
@@ -133,7 +134,7 @@ export type OrdreTravailDetail = {
   id: string;
   date_programmee: string;
   date_execution?: string | null;
-  statut: StatutOT;
+  statut: OtStatus;
   observations?: string | null;
   created_at: string;
   profile?: Profile;

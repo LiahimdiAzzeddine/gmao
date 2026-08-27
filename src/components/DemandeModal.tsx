@@ -9,6 +9,8 @@ interface DemandeModalProps {
   onSuccess: () => void;
 }
 
+type InterventionType = 'corrective' | 'preventive';
+
 export default function DemandeModal({ machine, onClose, onSuccess }: DemandeModalProps) {
   const { profile } = useAuth();
   const [demandeForm, setDemandeForm] = useState({
@@ -16,11 +18,10 @@ export default function DemandeModal({ machine, onClose, onSuccess }: DemandeMod
     urgence: 'moyenne' as 'faible' | 'moyenne' | 'élevée',
     label: '',
     cause: '',
-    type_intervention: 'réparation' as string,
+    type_intervention: 'corrective' as InterventionType,
   });
 
   const [submitting, setSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
 
   async function handleSubmitDemande(e: React.FormEvent) {
     e.preventDefault();
@@ -33,24 +34,29 @@ export default function DemandeModal({ machine, onClose, onSuccess }: DemandeMod
         .from('demande_intervention')
         .select('id')
         .eq('machine_id', machine.id)
-        .eq('type_intervention', 'corrective')
+        .eq('type_intervention', demandeForm.type_intervention)
         .eq('statut', 'en attente')
         .maybeSingle();
 
       if (existingError) throw existingError;
-      if (existingRequest) throw new Error('Une demande est déjà en attente pour cette machine.');
+      if (existingRequest) {
+        const typeLabel = demandeForm.type_intervention === 'preventive' ? 'préventive' : 'corrective';
+        alert(`Une demande ${typeLabel} est déjà en attente pour cette machine.`);
+        onClose();
+        onSuccess();
+        return;
+      }
 
       const description = [
         demandeForm.description,
         demandeForm.cause ? `Cause signalée : ${demandeForm.cause}` : '',
-        `Type demandé : ${demandeForm.type_intervention}`,
       ].filter(Boolean).join('\n');
 
       const { error: demandeError } = await supabase
         .from('demande_intervention')
         .insert({
           machine_id: machine.id,
-          type_intervention: 'corrective',
+          type_intervention: demandeForm.type_intervention,
           urgence: demandeForm.urgence,
           label: demandeForm.label || 'Problème signalé',
           description,
@@ -61,21 +67,16 @@ export default function DemandeModal({ machine, onClose, onSuccess }: DemandeMod
 
       if (demandeError) throw demandeError;
 
-      setSuccessMessage('Demande envoyée avec succès. Elle sera examinée par un administrateur.');
       setDemandeForm({ 
         description: '', 
         urgence: 'moyenne', 
         label: '',
         cause: '',
-        type_intervention: 'réparation'
+        type_intervention: 'corrective'
       });
-      
-      // Afficher le message pendant 3 secondes avant de fermer
-      setTimeout(() => {
-        setSuccessMessage('');
-        onClose();
-        onSuccess();
-      }, 3000);
+
+      onClose();
+      onSuccess();
     } catch (err) {
       console.error('Erreur création demande:', err);
       alert(err instanceof Error ? err.message : 'Erreur lors de l’envoi de la demande');
@@ -100,12 +101,6 @@ export default function DemandeModal({ machine, onClose, onSuccess }: DemandeMod
         </div>
 
         <form onSubmit={handleSubmitDemande}>
-          {successMessage && (
-            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-800 font-medium">{successMessage}</p>
-            </div>
-          )}
-          
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -127,16 +122,16 @@ export default function DemandeModal({ machine, onClose, onSuccess }: DemandeMod
               <select
                 value={demandeForm.type_intervention}
                 onChange={(e) =>
-                  setDemandeForm({ ...demandeForm, type_intervention: e.target.value })
+                  setDemandeForm({
+                    ...demandeForm,
+                    type_intervention: e.target.value as InterventionType,
+                  })
                 }
                 required
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
               >
-                <option value="réparation">Réparation</option>
-                <option value="dépannage">Dépannage</option>
-                <option value="remplacement">Remplacement de pièce</option>
-                <option value="diagnostic">Diagnostic</option>
-                <option value="autre">Autre</option>
+                <option value="corrective">Corrective</option>
+                <option value="preventive">Préventive</option>
               </select>
             </div>
 

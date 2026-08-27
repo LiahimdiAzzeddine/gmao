@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { OrdreTravailDetail, TypeOt } from "../types/ot";
-export type StatutOT = 'prévu' | 'en_cours' | 'terminé' | 'clôturé_avec_anomalie' | 'annulé'
+import type { OtStatus } from "../utils/otStatus";
+export type StatutOT = OtStatus
 export type TypePlan = 'préventive' | 'corrective'
 
 export type TypeRecurrence = 'journalière' | 'hebdomadaire' | 'mensuelle' | 'trimestriel' | 'semestriel' | 'annuelle'
@@ -41,6 +42,7 @@ export function useOrdresTravail(filters: Filters, page: number, refreshKey = 0)
       try {
         // Si on filtre par client, d'abord récupérer les IDs des machines de ce client
         let machineIds: string[] = [];
+        let matchingMachineIds: string[] = [];
         if (filters.clientId) {
           const { data: clientMachines, error: machinesError } = await supabase
             .from('machines')
@@ -59,31 +61,19 @@ export function useOrdresTravail(filters: Filters, page: number, refreshKey = 0)
           }
         }
 
-        // Si on recherche par nom de machine, récupérer les IDs des machines correspondantes
+        // La recherche globale accepte machine, modèle, numéro OT et identifiant court/complet.
         if (filters.machineSearch && filters.machineSearch.trim()) {
-          const searchLower = filters.machineSearch.toLowerCase().trim();
-          const { data: searchMachines, error: searchError } = await supabase
-            .from('machines')
-            .select('id, nom, modele')
-            .or(`nom.ilike.%${searchLower}%,modele.ilike.%${searchLower}%`);
-          
-          if (searchError) throw searchError;
-          
-          const searchMachineIds = searchMachines?.map(m => m.id) || [];
-          
-          // Si on a déjà filtré par client, faire l'intersection
-          if (filters.clientId && machineIds.length > 0) {
-            machineIds = machineIds.filter(id => searchMachineIds.includes(id));
-          } else {
-            machineIds = searchMachineIds;
-          }
-          
-          // Si aucune machine ne correspond, retourner un résultat vide
-          if (machineIds.length === 0) {
-            setOrdres([]);
-            setTotalCount(0);
-            setLoading(false);
-            return;
+          const searchValue = filters.machineSearch.trim();
+          const safeSearchValue = searchValue.replace(/[,%()]/g, ' ').trim();
+          if (safeSearchValue) {
+            const { data: searchMachines, error: searchError } = await supabase
+              .from('machines')
+              .select('id, nom, modele')
+              .or(`nom.ilike.%${safeSearchValue}%,modele.ilike.%${safeSearchValue}%`);
+
+            if (searchError) throw searchError;
+
+            matchingMachineIds = searchMachines?.map(m => m.id) || [];
           }
         }
 
@@ -147,11 +137,38 @@ export function useOrdresTravail(filters: Filters, page: number, refreshKey = 0)
         // Filtres simples
         if (filters.statut) query = query.eq('statut', filters.statut)
         if (filters.dateFrom) query = query.gte('date_programmee', filters.dateFrom)
-        if (filters.dateTo) query = query.lte('date_programmee', filters.dateTo)
+        if (filters.dateTo) {
+          const endExclusive = new Date(`${filters.dateTo}T00:00:00Z`)
+          endExclusive.setUTCDate(endExclusive.getUTCDate() + 1)
+          query = query.lt('date_programmee', endExclusive.toISOString())
+        }
 
         // Filtrer par type de plan uniquement pour les OT préventifs
         if (filters.typeOt) {
           query = query.eq('type', filters.typeOt)
+        }
+
+        if (filters.machineSearch.trim()) {
+          const normalizedSearch = filters.machineSearch.trim().toLowerCase().replace(/^#/, '');
+          const searchClauses: string[] = [];
+
+          if (matchingMachineIds.length > 0) {
+            searchClauses.push(`machine_id.in.(${matchingMachineIds.join(',')})`);
+          }
+          if (/^[0-9a-f-]{1,36}$/.test(normalizedSearch)) {
+            searchClauses.push(`search_id.ilike.${normalizedSearch.slice(0, 8)}%`);
+          }
+          if (/^\d+$/.test(normalizedSearch)) {
+            searchClauses.push(`numot.eq.${Number(normalizedSearch)}`);
+          }
+
+          if (searchClauses.length === 0) {
+            setOrdres([]);
+            setTotalCount(0);
+            return;
+          }
+
+          query = query.or(searchClauses.join(','));
         }
 
         // Filtrer par machines (client et/ou recherche)

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { MachineState, getMachineStateConfig } from '../../types/machineState';
 import { getStatutEtapeConfig } from '../../types/etapeGamme';
+import { getInterventionValidationLabel } from '../../utils/interventionStatus';
 
 interface Intervention {
   id: string;
@@ -152,7 +153,7 @@ export const InterventionSection: React.FC<InterventionSectionProps> = ({ interv
                         ? 'bg-green-100 text-green-800 border-green-200' 
                         : 'bg-yellow-100 text-yellow-800 border-yellow-200'
                     }`}>
-                      {intervention.valide ? 'Validée' : 'En attente'}
+                      {getInterventionValidationLabel(intervention.valide, 'admin')}
                     </div>
                   </div>
 
@@ -197,7 +198,7 @@ export const InterventionSection: React.FC<InterventionSectionProps> = ({ interv
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                       <div className="flex items-center gap-2 text-green-800">
                         <CheckCircle2 size={16} />
-                        <span className="font-medium">Intervention validée</span>
+                        <span className="font-medium">{getInterventionValidationLabel(true, 'admin')}</span>
                       </div>
                       <p className="text-sm text-green-700 mt-1">
                         Validée le {formatDate(intervention.valide_le)}

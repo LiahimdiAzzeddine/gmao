@@ -1,5 +1,6 @@
 import { OrdreTravailDetail } from '../../types/ot';
 import { getStatutConfig } from '../ot/getStatutConfig';
+import { getOtStatusLabel } from '../../utils/otStatus';
 
 interface StatusHeaderProps {
   ordre: OrdreTravailDetail;
@@ -29,11 +30,7 @@ export const StatusHeader = ({ ordre }: StatusHeaderProps) => {
           <div>
             <p className="text-xs opacity-90 font-semibold mb-1 uppercase tracking-wider">Statut</p>
             <p className="text-xl font-bold tracking-tight">
-              {ordre.statut === 'prévu' && 'À faire'}
-              {ordre.statut === 'en_cours' && 'En cours'}
-              {ordre.statut === 'terminé' && 'Clôturé'}
-              {ordre.statut === 'clôturé_avec_anomalie' && 'Clôturé avec anomalie'}
-              {ordre.statut === 'annulé' && 'Annulé'}
+              {getOtStatusLabel(ordre.statut)}
             </p>
           </div>
         </div>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { getOtStatusLabel } from '../utils/otStatus';
+import { getInterventionValidationLabel } from '../utils/interventionStatus';
 import { 
   ArrowLeft, User, Wrench, CheckCircle, XCircle, 
   AlertCircle, Edit, FileText, Image as ImageIcon, Loader2, MapPin 
@@ -225,17 +227,6 @@ const InterventionDetails: React.FC = () => {
   const getResultatIcon = (resultat: string | null) => {
     // Neutral icons for less colorful UI
     return <AlertCircle size={20} className="text-slate-600" />;
-  };
-
-  const getStatutOTLabel = (statut: string): string => {
-    switch (statut) {
-      case 'prévu': return 'Prévu';
-      case 'en_cours': return 'En cours';
-      case 'terminé': return 'Clôturé';
-      case 'annulé': return 'Annulé';
-      case 'clôturé_avec_anomalie': return 'Clôturé avec anomalie';
-      default: return statut.replace('_', ' ');
-    }
   };
 
   const isCorrectiveChildIntervention = (interventionData: any): boolean => {
@@ -785,23 +776,23 @@ const InterventionDetails: React.FC = () => {
               {intervention.valide ? (
                 <div className="flex items-center gap-2 px-4 py-2 border border-emerald-200 text-emerald-800 rounded-lg">
                   <CheckCircle size={20} />
-                  <span className="font-medium">Validée</span>
+                  <span className="font-medium">{getInterventionValidationLabel(true, 'admin')}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 px-4 py-2 border border-amber-200 text-amber-800 rounded-lg">
                   <AlertCircle size={20} />
-                  <span className="font-medium">En attente</span>
+                  <span className="font-medium">{getInterventionValidationLabel(false, 'admin')}</span>
                 </div>
               )}
               {intervention.client_valide ? (
                 <div className="flex items-center gap-2 px-4 py-2 border border-emerald-200 text-emerald-800 rounded-lg">
                   <CheckCircle size={20} />
-                  <span className="font-medium">Validée client</span>
+                  <span className="font-medium">{getInterventionValidationLabel(true, 'client')}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-600 rounded-lg">
                   <AlertCircle size={20} />
-                  <span className="font-medium">Attente client</span>
+                  <span className="font-medium">{getInterventionValidationLabel(false, 'client')}</span>
                 </div>
               )}
             </div>
@@ -834,7 +825,7 @@ const InterventionDetails: React.FC = () => {
 
                 <div>
                   <label className="text-sm font-medium text-slate-500">Statut OT</label>
-                  <p className="text-slate-900 font-medium">{getStatutOTLabel(intervention.ordre_travail.statut)}</p>
+                  <p className="text-slate-900 font-medium">{getOtStatusLabel(intervention.ordre_travail.statut)}</p>
                 </div>
 
                 <div>
@@ -956,7 +947,7 @@ const InterventionDetails: React.FC = () => {
                       : 'bg-slate-100 text-slate-700 border-slate-200'
                   }`}>
                     {intervention.client_valide ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
-                    {intervention.client_valide ? 'Validée par client' : 'Non validée par client'}
+                    {getInterventionValidationLabel(intervention.client_valide, 'client')}
                   </span>
                 </div>
                 {intervention.commentaire_client ? (
@@ -1060,7 +1051,7 @@ const InterventionDetails: React.FC = () => {
                   : 'bg-slate-100 text-slate-700 border-slate-200'
               }`}>
                 {intervention.client_valide ? <CheckCircle size={13} /> : <AlertCircle size={13} />}
-                {intervention.client_valide ? 'Validée' : 'En attente'}
+                {getInterventionValidationLabel(intervention.client_valide, 'client')}
               </div>
               {intervention.commentaire_client && (
                 <p className="mt-3 text-sm text-slate-700 whitespace-pre-wrap">{intervention.commentaire_client}</p>

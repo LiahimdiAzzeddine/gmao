@@ -8,6 +8,7 @@ export default function DemandesList() {
   const [demandes, setDemandes] = useState<DemandeIntervention[]>([]);
   const [machines, setMachines] = useState<Record<string, Machine>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [convertingId, setConvertingId] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -22,6 +23,7 @@ export default function DemandesList() {
 
 async function loadDemandes() {
   setLoading(true);
+  setLoadError('');
 
   try {
     const { data, error } = await supabase
@@ -37,9 +39,9 @@ async function loadDemandes() {
 
     if (error) {
       console.error(error);
+      setLoadError('Impossible de charger les demandes. Veuillez réessayer.');
       setDemandes([]);
       setMachines({});
-      setLoading(false);
       return;
     }
 
@@ -52,12 +54,12 @@ async function loadDemandes() {
       });
 
       setMachines(machinesMap);
-      console.log("🚀 ~ loadDemandes ~ machinesMap:", machinesMap)
       setDemandes(data);
     }
 
   } catch (err) {
     console.error(err);
+    setLoadError('Impossible de charger les demandes. Veuillez réessayer.');
     setDemandes([]);
     setMachines({});
   } finally {
@@ -325,6 +327,17 @@ async function loadDemandes() {
             <div className="inline-block h-12 w-12 animate-spin rounded-full border-b-2 border-[#f98440]"></div>
             <p className="mt-4 text-slate-600 font-medium">Chargement des demandes...</p>
           </div>
+        ) : loadError ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-8 text-center text-red-700">
+            <p className="font-semibold">{loadError}</p>
+            <button
+              type="button"
+              onClick={loadDemandes}
+              className="mt-4 rounded-lg bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700"
+            >
+              Réessayer
+            </button>
+          </div>
         ) : filteredDemandes.length === 0 ? (
           <div className="rounded-lg bg-white p-12 text-center shadow-sm ring-1 ring-slate-100">
             <FileSpreadsheet size={56} className="mx-auto text-slate-300 mb-4" />
@@ -351,7 +364,7 @@ async function loadDemandes() {
                     <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">Client</th>
                     <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">Type</th>
                     <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">Urgence</th>
-                    <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">Date intervention</th>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">Date demande</th>
                     <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">Statut</th>
                     <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">Actions</th>
                   </tr>
@@ -378,7 +391,7 @@ async function loadDemandes() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="font-semibold text-slate-900">
-                            {machine.client?.raison_sociale ? machine.client!.raison_sociale : machine.client!.prenom}
+                            {machine?.client?.raison_sociale || machine?.client?.prenom || 'Non renseigné'}
                           </div>
                         
                         </td>
@@ -403,7 +416,7 @@ async function loadDemandes() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-slate-700 font-medium">
-                          {d.date_intervention ? new Date(d.date_intervention).toLocaleDateString('fr-FR') : '-'}
+                          {d.date_demande ? new Date(d.date_demande).toLocaleDateString('fr-FR') : '-'}
                         </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
