@@ -18,8 +18,8 @@ export function MachineMultiSelect({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const filteredMachines = machines.filter(machine =>
-    machine.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    machine.localisation.toLowerCase().includes(searchTerm.toLowerCase())
+    (machine.nom || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (machine.localisation || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const toggleMachine = (id: string) => {
@@ -31,7 +31,7 @@ export function MachineMultiSelect({
   };
 
   const selectAll = () => {
-    onChange(filteredMachines.map(m => m.id));
+    onChange(Array.from(new Set([...selectedIds, ...filteredMachines.map(m => m.id)])));
   };
 
   const deselectAll = () => {
@@ -52,21 +52,17 @@ export function MachineMultiSelect({
   }, [isOpen]);
 
   return (
-    <div className="space-y-3 relative" ref={dropdownRef}>
-           <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-1">
-          <div className="flex gap-3">
-            <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-blue-800">
-              <p>Créez des demandes groupées pour machines similaires.</p>
-            </div>
-          </div>
-        </div>
+    <div className="relative space-y-3" ref={dropdownRef}>
+      <div className="flex items-center gap-2 text-xs text-slate-500">
+        <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[#ee6b1a]" />
+        <p>Vous pouvez sélectionner plusieurs machines similaires.</p>
+      </div>
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-white cursor-pointer hover:border-blue-400 transition-colors flex items-center justify-between"
+        className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-slate-300 bg-white px-4 py-3 transition-colors hover:border-[#ee6b1a]"
       >
         <div className="flex items-center gap-2">
-          <Wrench className="w-4 h-4 text-blue-600" />
+          <Wrench className="h-4 w-4 text-[#ee6b1a]" />
           {selectedIds.length > 0 ? (
             <span className="font-medium text-slate-900">
               {selectedIds.length} machine{selectedIds.length > 1 ? 's' : ''} sélectionnée{selectedIds.length > 1 ? 's' : ''}
@@ -112,7 +108,7 @@ export function MachineMultiSelect({
                   e.stopPropagation();
                   selectAll();
                 }}
-                className="flex-1 px-3 py-1.5 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 font-medium transition-colors"
+                className="flex-1 rounded bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 transition-colors hover:bg-orange-100"
               >
                 Tout sélectionner
               </button>
@@ -142,12 +138,12 @@ export function MachineMultiSelect({
                     e.stopPropagation();
                     toggleMachine(machine.id);
                   }}
-                  className={`p-3 hover:bg-blue-50 cursor-pointer transition-colors border-b border-slate-100 last:border-b-0 ${selectedIds.includes(machine.id) ? 'bg-blue-50' : ''
+                  className={`p-3 hover:bg-orange-50 cursor-pointer transition-colors border-b border-slate-100 last:border-b-0 ${selectedIds.includes(machine.id) ? 'bg-orange-50' : ''
                     }`}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${selectedIds.includes(machine.id)
-                      ? 'bg-blue-600 border-blue-600'
+                      ? 'bg-[#ee6b1a] border-[#ee6b1a]'
                       : 'border-slate-300'
                       }`}>
                       {selectedIds.includes(machine.id) && (
@@ -157,7 +153,7 @@ export function MachineMultiSelect({
                     <Wrench className="w-4 h-4 text-slate-400" />
                     <div className="flex-1">
                       <span className="font-medium text-slate-900">{machine.nom}</span>
-                      <div className="text-sm text-slate-500">{machine.localisation}</div>
+                      {machine.localisation && <div className="text-sm text-slate-500">{machine.localisation}</div>}
                     </div>
                   </div>
                 </div>
@@ -175,14 +171,14 @@ export function MachineMultiSelect({
             return (
               <div
                 key={id}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-800 rounded-lg text-sm"
+                className="inline-flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-1.5 text-sm text-orange-800 ring-1 ring-orange-200"
               >
                 <Wrench className="w-3 h-3" />
                 <span className="font-medium">{machine.nom}</span>
                 <button
                   type="button"
                   onClick={() => toggleMachine(id)}
-                  className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                  className="rounded-full p-0.5 transition-colors hover:bg-orange-200"
                 >
                   <X className="w-3 h-3" />
                 </button>

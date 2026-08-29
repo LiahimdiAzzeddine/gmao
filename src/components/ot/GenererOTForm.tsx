@@ -14,6 +14,8 @@ import {
   Target,
   Filter,
   ClipboardList,
+  Eye,
+  X,
 } from 'lucide-react';
 
 type Plan = {
@@ -68,6 +70,7 @@ export default function GenererOTForm() {
   const [modeFiltrePlans, setModeFiltrePlans] = useState<'tous' | 'selection'>('tous');
   const [machineFilter, setMachineFilter] = useState<string>('');
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
+  const [semaineDetail, setSemaineDetail] = useState<SemaineDisponible | null>(null);
 
   const getRecurrenceDescription = (plan: Plan): string => {
     const { type_recurrence, intervalle, jour_semaine, semaine_du_mois } = plan;
@@ -475,14 +478,27 @@ export default function GenererOTForm() {
   const semaineActuelle = getWeekNumber(maintenant);
   const anneeActuelle = maintenant.getFullYear();
 
+  useEffect(() => {
+    if (!semaineDetail) return;
+
+    const fermerAvecEchap = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSemaineDetail(null);
+    };
+
+    document.addEventListener('keydown', fermerAvecEchap);
+    return () => document.removeEventListener('keydown', fermerAvecEchap);
+  }, [semaineDetail]);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8">
+    <div className="space-y-5 pb-8 pt-2">
       {/* Spinner global pendant la génération des OT */}
       {loading && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-white/60 bg-white p-7 shadow-2xl">
             <div className="text-center">
-              <Loader2 className="w-16 h-16 animate-spin text-orange-500 mx-auto mb-4" />
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-50 ring-1 ring-orange-100">
+                <Loader2 className="h-9 w-9 animate-spin text-[#f98440]" />
+              </div>
               <h3 className="text-xl font-bold text-slate-800 mb-2">
                 Génération des OT en cours...
               </h3>
@@ -525,17 +541,107 @@ export default function GenererOTForm() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="bg-white rounded-xl shadow-lg border border-slate-200">
-          {/* En-tête */}
-          <div className="border-b border-slate-200 bg-gradient-to-r from-orange-500 to-orange-600 px-8 py-6 rounded-t-xl">
-            <div className="flex items-center gap-3">
-              <Zap className="w-8 h-8 text-white" />
+      {semaineDetail && (
+        <div
+          className="fixed inset-0 z-[65] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm"
+          onMouseDown={event => {
+            if (event.currentTarget === event.target) setSemaineDetail(null);
+          }}
+          role="presentation"
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="semaine-detail-title"
+            className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+          >
+            <header className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
               <div>
-                <h1 className="text-2xl font-bold text-white">
+                <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-orange-600">
+                  <Calendar className="h-4 w-4" />
+                  Détail de la programmation
+                </div>
+                <h2 id="semaine-detail-title" className="text-lg font-bold text-slate-900 sm:text-xl">
+                  Semaine {semaineDetail.numero} — {semaineDetail.annee}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Du {formatDate(semaineDetail.dateDebut)} au {formatDate(semaineDetail.dateFin)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSemaineDetail(null)}
+                className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                aria-label="Fermer les détails"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </header>
+
+            <div className="grid grid-cols-2 gap-3 border-b border-slate-200 px-5 py-3 sm:px-6">
+              <div className="rounded-xl bg-orange-50 px-4 py-3">
+                <div className="text-xl font-bold text-orange-700">{semaineDetail.totalOTManquants}</div>
+                <div className="text-xs font-medium text-orange-700">OT manquants</div>
+              </div>
+              <div className="rounded-xl bg-slate-100 px-4 py-3">
+                <div className="text-xl font-bold text-slate-700">{semaineDetail.joursManquants.length}</div>
+                <div className="text-xs font-medium text-slate-600">Jours concernés</div>
+              </div>
+            </div>
+
+            <div className="overflow-y-auto px-5 py-4 sm:px-6">
+              <div className="space-y-3">
+                {semaineDetail.joursManquants.map(jour => (
+                  <article key={jour.date} className="overflow-hidden rounded-xl border border-slate-200">
+                    <div className="flex items-center justify-between bg-slate-50 px-4 py-2.5">
+                      <h3 className="text-sm font-bold capitalize text-slate-800">
+                        {new Date(jour.date).toLocaleDateString('fr-FR', {
+                          weekday: 'long',
+                          day: '2-digit',
+                          month: 'long',
+                          year: 'numeric',
+                        })}
+                      </h3>
+                      <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                        {jour.plansManquants.length} plan{jour.plansManquants.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                      {jour.plansManquants.map((plan, index) => (
+                        <div key={`${plan.id}-${index}`} className="flex gap-3 px-4 py-3">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-orange-100 text-xs font-bold text-orange-700">
+                            {index + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-slate-800">{plan.nom_machine}</div>
+                            <div className="mt-0.5 text-xs text-slate-500">
+                              {getRecurrenceDescription(plan)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      <div className="mx-auto max-w-7xl space-y-5">
+        <div className="overflow-hidden rounded-2xl border border-orange-200/70 bg-white shadow-sm">
+          {/* En-tête */}
+          <div className="bg-gradient-to-br from-[#f98440] via-[#f97316] to-[#d95f24] px-5 py-6 text-white sm:px-7 lg:px-8">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/25">
+                <Zap className="h-6 w-6" />
+              </div>
+              <div>
+                <h1 className="text-xl font-black tracking-tight sm:text-2xl">
                   Rattraper les OT Préventifs Manqués
                 </h1>
-                <p className="text-orange-100 text-sm mt-1">
+                <p className="mt-1.5 max-w-3xl text-sm leading-6 text-orange-50/90">
                   Identifiez et générez les ordres de travail préventifs manqués depuis le début des plans jusqu'à aujourd'hui
                 </p>
               </div>
@@ -543,7 +649,7 @@ export default function GenererOTForm() {
           </div>
 
           {/* Message d'information */}
-          <div className="mx-8 mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="mx-5 mt-5 rounded-xl border border-blue-200 bg-blue-50/80 p-4 sm:mx-7 lg:mx-8">
             <div className="flex gap-3">
               <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-blue-800">
@@ -561,7 +667,7 @@ export default function GenererOTForm() {
           {/* Messages */}
           {message && (
             <div
-              className={`mx-8 mt-6 border rounded-lg p-4 ${
+              className={`mx-5 mt-5 rounded-xl border p-4 sm:mx-7 lg:mx-8 ${
                 message.includes('succès')
                   ? 'bg-green-50 border-green-200'
                   : 'bg-red-50 border-red-200'
@@ -580,19 +686,19 @@ export default function GenererOTForm() {
             </div>
           )}
 
-          <div className="p-8">
+          <div className="p-5 sm:p-7 lg:p-8">
             {/* SECTION 1: FILTRAGE DES PLANS */}
-            <div className="space-y-6 mb-8">
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 uppercase tracking-wide">
-                <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+            <div className="mb-7 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+              <div className="mb-5 flex items-center gap-3 text-sm font-bold uppercase tracking-wide text-slate-700">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-100">
                   <span className="text-orange-600 font-bold">1</span>
                 </div>
                 Sélectionner les plans à analyser
               </div>
 
-              <div className="ml-10 space-y-4">
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
+              <div className="space-y-4 lg:pl-12">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className={`flex cursor-pointer items-center gap-3 rounded-xl border bg-white p-4 transition-all ${modeFiltrePlans === 'tous' ? 'border-orange-400 ring-2 ring-orange-100' : 'border-slate-200 hover:border-orange-200'}`}>
                     <input
                       type="radio"
                       name="modeFiltre"
@@ -601,11 +707,11 @@ export default function GenererOTForm() {
                       onChange={e => setModeFiltrePlans(e.target.value as 'tous' | 'selection')}
                       className="w-4 h-4 text-orange-500 border-slate-300 focus:ring-orange-500"
                     />
-                    <span className="text-sm font-medium text-slate-700">
+                    <span className="text-sm font-semibold text-slate-700">
                       Analyser tous les plans actifs ({plans.length})
                     </span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className={`flex cursor-pointer items-center gap-3 rounded-xl border bg-white p-4 transition-all ${modeFiltrePlans === 'selection' ? 'border-orange-400 ring-2 ring-orange-100' : 'border-slate-200 hover:border-orange-200'}`}>
                     <input
                       type="radio"
                       name="modeFiltre"
@@ -614,7 +720,7 @@ export default function GenererOTForm() {
                       onChange={e => setModeFiltrePlans(e.target.value as 'tous' | 'selection')}
                       className="w-4 h-4 text-orange-500 border-slate-300 focus:ring-orange-500"
                     />
-                    <span className="text-sm font-medium text-slate-700">
+                    <span className="text-sm font-semibold text-slate-700">
                       Sélectionner des plans spécifiques
                     </span>
                   </label>
@@ -666,7 +772,7 @@ export default function GenererOTForm() {
                   </div>
                 )}
 
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <div className="flex items-center gap-2 text-sm text-slate-600">
                     <Settings className="w-4 h-4" />
                     <span>
@@ -705,27 +811,27 @@ export default function GenererOTForm() {
             ) : (
               <>
                 {/* Statistiques */}
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-                  <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                    <div className="text-2xl font-bold text-slate-700">
+                <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+                    <div className="text-xl font-bold leading-none text-slate-700">
                       {modeFiltrePlans === 'tous' ? plans.length : plansSelectionnes.length}
                     </div>
                     <div className="text-sm text-slate-600 mt-1">Plans analysés</div>
                   </div>
-                  <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
-                    <div className="text-2xl font-bold text-orange-600">{semainesDisponibles.length}</div>
+                  <div className="rounded-xl border border-orange-200 bg-orange-50 p-3.5">
+                    <div className="text-xl font-bold leading-none text-orange-600">{semainesDisponibles.length}</div>
                     <div className="text-sm text-orange-600 mt-1">Semaines en retard</div>
                   </div>
-                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                    <div className="text-2xl font-bold text-blue-600">{semainesSelectionnees.length}</div>
+                  <div className="rounded-xl border border-blue-200 bg-blue-50 p-3.5">
+                    <div className="text-xl font-bold leading-none text-blue-600">{semainesSelectionnees.length}</div>
                     <div className="text-sm text-blue-600 mt-1">Semaines sélectionnées</div>
                   </div>
-                  <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-                    <div className="text-2xl font-bold text-red-600">{totalOTManquantsGlobal}</div>
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-3.5">
+                    <div className="text-xl font-bold leading-none text-red-600">{totalOTManquantsGlobal}</div>
                     <div className="text-sm text-red-600 mt-1">OT manquants (total)</div>
                   </div>
-                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                    <div className="text-2xl font-bold text-green-600">{totalOTSelectionnes}</div>
+                  <div className="col-span-2 rounded-xl border border-green-200 bg-green-50 p-3.5 lg:col-span-1">
+                    <div className="text-xl font-bold leading-none text-green-600">{totalOTSelectionnes}</div>
                     <div className="text-sm text-green-600 mt-1">OT à rattraper</div>
                   </div>
                 </div>
@@ -748,8 +854,8 @@ export default function GenererOTForm() {
                 ) : (
                   <>
                     {/* Section 2 header + machine filter + toggle button */}
-                    <div className="flex flex-col gap-4 mb-6">
-                      <div className="flex items-center justify-between">
+                    <div className="mb-5 flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 uppercase tracking-wide">
                           <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
                             <span className="text-orange-600 font-bold">2</span>
@@ -769,9 +875,9 @@ export default function GenererOTForm() {
                       </div>
 
                       {/* Machine filter */}
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                         <Filter className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                        <div className="w-64">
+                        <div className="w-full sm:w-80">
                           <Select<MachineOption>
                             options={machineOptions}
                             value={machineOptions.find(o => o.value === machineFilter) ?? null}
@@ -806,62 +912,77 @@ export default function GenererOTForm() {
                     </div>
 
                     {/* Liste des semaines */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                    <div className="mb-6 grid grid-cols-1 items-start gap-3 xl:grid-cols-2">
                       {semainesFiltrees.map(semaine => {
                         const key = getSemaineKey(semaine);
                         const selected = semainesSelectionnees.includes(key);
                         return (
                           <div
                             key={key}
-                            className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                            className={`self-start cursor-pointer overflow-hidden rounded-xl border-2 p-3.5 transition-all duration-200 ${
                               selected
-                                ? 'border-orange-500 bg-orange-50'
-                                : 'border-slate-200 bg-white hover:border-slate-300'
+                                ? 'border-orange-500 bg-orange-50 shadow-sm ring-2 ring-orange-100'
+                                : 'border-slate-200 bg-white hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-sm'
                             }`}
                             onClick={() => toggleSemaine(key)}
                           >
-                            <div className="flex items-center justify-between mb-2">
+                            <div className="mb-1.5 flex items-center justify-between gap-3">
                               <div className="flex items-center gap-2">
                                 <Calendar className="w-4 h-4 text-slate-500" />
                                 <span className="font-semibold text-slate-900">
                                   Semaine {semaine.numero} — {semaine.annee}
                                 </span>
                               </div>
-                              <input
-                                type="checkbox"
-                                checked={selected}
-                                onChange={() => toggleSemaine(key)}
-                                onClick={e => e.stopPropagation()}
-                                className="w-4 h-4 text-orange-500 border-slate-300 rounded focus:ring-orange-500"
-                              />
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={event => {
+                                    event.stopPropagation();
+                                    setSemaineDetail(semaine);
+                                  }}
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                  aria-label={`Afficher les détails de la semaine ${semaine.numero}`}
+                                  title="Afficher tous les détails"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() => toggleSemaine(key)}
+                                  onClick={e => e.stopPropagation()}
+                                  className="h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+                                  aria-label={`Sélectionner la semaine ${semaine.numero}`}
+                                />
+                              </div>
                             </div>
 
-                            <div className="text-sm text-slate-600 mb-3">
+                            <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
                               {formatDate(semaine.dateDebut)} – {formatDate(semaine.dateFin)}
                               {semaine.numero === semaineActuelle && semaine.annee === anneeActuelle ? (
-                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-800">
                                   Cette semaine
                                 </span>
                               ) : (
-                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                                <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-800">
                                   En retard
                                 </span>
                               )}
                             </div>
 
-                            <div className="flex items-center justify-between text-sm mb-3">
-                              <span className="text-slate-500">
+                            <div className="mb-2 flex items-center justify-between rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs">
+                              <span className="font-medium text-slate-600">
                                 {semaine.totalOTManquants} OT manquant{semaine.totalOTManquants > 1 ? 's' : ''}
                               </span>
-                              <span className="text-xs bg-slate-100 px-2 py-1 rounded">
+                              <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-slate-200">
                                 {semaine.joursManquants.length} jour{semaine.joursManquants.length > 1 ? 's' : ''}
                               </span>
                             </div>
 
-                            <div className="space-y-1.5">
+                            <div className="space-y-1">
                               {semaine.joursManquants.slice(0, 2).map(jour => (
-                                <div key={jour.date} className="text-xs bg-slate-50 p-2 rounded border border-slate-200">
-                                  <div className="font-medium text-slate-700 mb-1 text-[11px]">
+                                <div key={jour.date} className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs">
+                                  <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
                                     {new Date(jour.date).toLocaleDateString('fr-FR', {
                                       weekday: 'short',
                                       day: '2-digit',
@@ -869,25 +990,30 @@ export default function GenererOTForm() {
                                     })}
                                   </div>
                                   <div className="space-y-1">
-                                    {jour.plansManquants.map((p, idx) => {
+                                    {jour.plansManquants.slice(0, 2).map((p, idx) => {
                                       const jourNom = p.jour_semaine !== undefined && p.jour_semaine !== null
                                         ? ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][p.jour_semaine]
                                         : null;
                                       return (
-                                        <div key={idx} className="text-[11px] leading-tight">
-                                          <div className="font-medium text-slate-700">{p.nom_machine}</div>
-                                          <div className="text-slate-500">
+                                        <div key={idx} className="border-l-2 border-orange-200 pl-2 text-[11px] leading-tight">
+                                          <div className="truncate font-medium text-slate-700" title={p.nom_machine}>{p.nom_machine}</div>
+                                          <div className="truncate text-[10px] text-slate-500">
                                             {getRecurrenceDescription(p)}
                                             {jourNom && ` • ${jourNom}`}
                                           </div>
                                         </div>
                                       );
                                     })}
+                                    {jour.plansManquants.length > 2 && (
+                                      <div className="pt-0.5 text-[10px] font-semibold text-slate-500">
+                                        +{jour.plansManquants.length - 2} autre(s) plan(s)
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               ))}
                               {semaine.joursManquants.length > 2 && (
-                                <div className="text-[11px] text-slate-400 text-center py-1">
+                                <div className="pt-1 text-center text-[10px] font-medium text-slate-500">
                                   +{semaine.joursManquants.length - 2} autre(s) jour(s)
                                 </div>
                               )}
@@ -914,11 +1040,11 @@ export default function GenererOTForm() {
                     )}
 
                     {/* Boutons d'action */}
-                    <div className="flex justify-end gap-4">
+                    <div className="sticky bottom-3 z-20 flex flex-col-reverse gap-2 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur sm:flex-row sm:justify-end">
                       <button
                         type="button"
                         onClick={() => navigate('/admin/plans-maintenance')}
-                        className="px-6 py-3 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors font-medium"
+                        className="inline-flex items-center justify-center rounded-xl bg-slate-100 px-5 py-3 font-semibold text-slate-700 transition-colors hover:bg-slate-200"
                       >
                         Retour
                       </button>
@@ -926,7 +1052,7 @@ export default function GenererOTForm() {
                       <button
                         type="button"
                         onClick={analyserSemainesManquantes}
-                        className="px-6 py-3 text-orange-700 bg-orange-100 rounded-lg hover:bg-orange-200 transition-colors font-medium flex items-center gap-2"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-100 px-5 py-3 font-semibold text-orange-700 transition-colors hover:bg-orange-200"
                       >
                         <Clock className="w-4 h-4" />
                         Réanalyser
@@ -936,7 +1062,7 @@ export default function GenererOTForm() {
                         type="button"
                         onClick={handleSubmit}
                         disabled={loading || semainesSelectionnees.length === 0}
-                        className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f98440] to-[#e96524] px-6 py-3 font-bold text-white shadow-md transition-all hover:from-[#e96524] hover:to-[#d95f24] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {loading ? (
                           <>
