@@ -456,7 +456,7 @@ export default function MaintenancePlansTable() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto mb-14 px-4 sm:px-6 lg:px-8">
+    <div className=" mx-auto mb-14 px-4 sm:px-6 lg:px-8">
       {/* Modal de sélection de client */}
       {showClientModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

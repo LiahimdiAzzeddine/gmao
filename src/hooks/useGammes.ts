@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { GammeMaintenance, EtapeGamme, GammeWithEtapes } from '../types/gammes';
 
@@ -14,18 +14,27 @@ export function useGammes() {
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const lastParamsRef = useRef<UseGammesParams>({});
+  const requestIdRef = useRef(0);
 
   const loadGammes = useCallback(async (params: UseGammesParams = {}) => {
+    lastParamsRef.current = params;
+    const requestId = ++requestIdRef.current;
     setLoading(true);
+    setError(null);
     const { page = 1, pageSize = 10, searchTerm = '', filterType = 'tous' } = params;
 
     try {
       let query = supabase
         .from('gammes_maintenance')
-        .select('*', { count: 'exact' });
+        .select('*, etapes:etapes_gamme(*)', { count: 'exact' });
 
       if (searchTerm) {
-        query = query.or(`nom.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+        const safeSearchTerm = searchTerm.replace(/[,%()]/g, ' ').trim();
+        if (safeSearchTerm) {
+          query = query.or(`nom.ilike.%${safeSearchTerm}%,description.ilike.%${safeSearchTerm}%`);
+        }
       }
 
       if (filterType !== 'tous') {
@@ -38,35 +47,32 @@ export function useGammes() {
 
       if (gammesError) throw gammesError;
 
-      if (gammesData) {
-        const gammesWithEtapes = await Promise.all(
-          gammesData.map(async (gamme) => {
-            const { data: etapesData } = await supabase
-              .from('etapes_gamme')
-              .select('*')
-              .eq('gamme_id', gamme.id)
-              .order('ordre', { ascending: true });
+      if (requestId !== requestIdRef.current) return;
 
-            return {
-              ...gamme,
-              etapes: etapesData || [],
-            };
-          })
-        );
+      const gammesWithEtapes = (gammesData || []).map((gamme: any) => ({
+        ...gamme,
+        etapes: [...(gamme.etapes || [])].sort((a, b) => a.ordre - b.ordre),
+      })) as GammeWithEtapes[];
 
-        setGammes(gammesWithEtapes);
-        setTotalCount(count || 0);
-        setTotalPages(Math.ceil((count || 0) / pageSize));
-      }
+      setGammes(gammesWithEtapes);
+      setTotalCount(count || 0);
+      setTotalPages(Math.ceil((count || 0) / pageSize));
+      return gammesWithEtapes;
     } catch (error) {
       console.error('Error loading gammes:', error);
+      if (requestId === requestIdRef.current) {
+        setError('Impossible de charger les gammes de maintenance.');
+        setGammes([]);
+        setTotalCount(0);
+        setTotalPages(0);
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   }, []);
 
   const reload = useCallback(() => {
-    loadGammes();
+    return loadGammes(lastParamsRef.current);
   }, [loadGammes]);
 
   return {
@@ -74,6 +80,7 @@ export function useGammes() {
     loading,
     totalCount,
     totalPages,
+    error,
     loadGammes,
     reload,
   };
@@ -103,6 +110,23 @@ export async function updateGamme(id: string, gamme: Partial<GammeMaintenance>) 
 }
 
 export async function deleteGamme(id: string) {
+  const { count, error: dependencyError } = await supabase
+    .from('plans_maintenance')
+    .select('id', { count: 'exact', head: true })
+    .eq('gamme_id', id);
+
+  if (dependencyError) throw dependencyError;
+  if ((count || 0) > 0) {
+    throw new Error(`Cette gamme est utilisée par ${count} plan${count && count > 1 ? 's' : ''} de maintenance.`);
+  }
+
+  const { error: stepsError } = await supabase
+    .from('etapes_gamme')
+    .delete()
+    .eq('gamme_id', id);
+
+  if (stepsError) throw stepsError;
+
   const { error } = await supabase
     .from('gammes_maintenance')
     .delete()
@@ -144,9 +168,10 @@ export async function deleteEtape(id: string) {
 }
 
 export async function reorderEtapes(etapes: { id: string; ordre: number }[]) {
-  const promises = etapes.map(({ id, ordre }) =>
+  const results = await Promise.all(etapes.map(({ id, ordre }) =>
     supabase.from('etapes_gamme').update({ ordre }).eq('id', id)
-  );
+  ));
 
-  await Promise.all(promises);
+  const failedUpdate = results.find((result) => result.error);
+  if (failedUpdate?.error) throw failedUpdate.error;
 }

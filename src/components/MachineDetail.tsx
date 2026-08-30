@@ -92,8 +92,7 @@ export default function MachineDetail() {
             plan:plans_maintenance(
               *,
               lot:lots(*),
-              gamme:gammes_maintenance(*),
-              ordres_travail:ordres_travail(*, technicien:profiles(id, nom))
+              gamme:gammes_maintenance(*)
             )
           )
         `)

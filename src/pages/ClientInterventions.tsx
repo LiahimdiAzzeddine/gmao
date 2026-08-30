@@ -691,26 +691,32 @@ export default function ClientInterventions() {
               ))}
             </div>
 
-            {/* Tableau desktop - Style Dashboard avec shadow */}
-            <div className="mt-4 md:mt-6 hidden md:block rounded-lg bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+            {/* Tableau desktop */}
+            <div className="mt-4 hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:mt-6 md:block">
+              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3.5">
+                <div>
+                  <h2 className="text-sm font-black text-slate-900">Liste des interventions</h2>
+                  <p className="mt-0.5 text-xs text-slate-500">Suivi des réalisations et des validations</p>
+                </div>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                  {filteredInterventions.length} affichée{filteredInterventions.length > 1 ? 's' : ''}
+                </span>
+              </div>
               <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b border-slate-200">
+                <table className="w-full min-w-[1120px]">
+                  <thead className="border-b border-slate-200 bg-slate-50/90">
                     <tr>
                       <Th>Intervention / OT</Th>
-                      <Th>Machine</Th>
-                      <Th>Gamme</Th>
+                      <Th>Machine / Gamme</Th>
                       <Th>Type</Th>
                       <Th>Technicien</Th>
-                      <Th>Date début</Th>
-                      <Th>Durée</Th>
+                      <Th>Exécution</Th>
                       <Th>Résultat</Th>
-                      <Th>Validation admin</Th>
-                      <Th>Validation client</Th>
-                      <Th align="center">Actions</Th>
+                      <Th>Validations</Th>
+                      <Th align="center" sticky>Actions</Th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-slate-100">
                     {filteredInterventions.map((intervention) => (
                       <InterventionRow
                         key={intervention.id}
@@ -908,9 +914,9 @@ export default function ClientInterventions() {
   );
 }
 
-function Th({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'center' }) {
+function Th({ children, align = 'left', sticky = false }: { children: React.ReactNode; align?: 'left' | 'center'; sticky?: boolean }) {
   return (
-    <th className={`px-4 py-3 ${align === 'center' ? 'text-center' : 'text-left'} text-xs font-semibold text-slate-700 uppercase tracking-wider`}>
+    <th className={`px-5 py-3.5 ${align === 'center' ? 'text-center' : 'text-left'} ${sticky ? 'sticky right-0 bg-slate-50 shadow-[-5px_0_10px_-8px_rgba(15,23,42,0.35)]' : ''} text-[11px] font-black uppercase tracking-[0.08em] text-slate-500`}>
       {children}
     </th>
   );
@@ -953,71 +959,72 @@ function InterventionRow({
   };
 
   return (
-    <tr className="hover:bg-slate-50 transition-colors">
-      <td className="px-4 py-3">
-        <div className="font-semibold text-slate-900">#{intervention.id.slice(0, 8)}</div>
-        <div className="text-xs text-slate-500 mt-1">OT #{ot?.numot || intervention.ordre_travail_id?.slice(0, 8) || '-'}</div>
+    <tr className="group transition-colors hover:bg-orange-50/30">
+      <td className="px-5 py-4 align-top">
+        <button type="button" onClick={onOpenIntervention} className="text-left">
+          <span className="block font-mono text-sm font-black text-slate-900 transition group-hover:text-[#d93f34]">
+            #{intervention.id.slice(0, 8)}
+          </span>
+          <span className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-slate-500">
+            <ClipboardList size={12} /> OT #{ot?.numot || intervention.ordre_travail_id?.slice(0, 8) || '-'}
+          </span>
+        </button>
       </td>
-      <td className="px-4 py-3">
-        <div className="font-medium text-slate-900">{ot?.machine?.nom || 'Machine inconnue'}</div>
-        <div className="text-xs text-slate-500">{ot?.machine?.modele || ot?.machine?.numero_serie || '-'}</div>
-      </td>
-      <td className="w-36 max-w-36 px-3 py-3">
-        <div className="group relative w-28">
-          <div className="truncate text-sm font-medium text-slate-900">
-            {ot?.plan?.gamme?.nom || 'Non renseignée'}
-          </div>
-          <div
-            role="tooltip"
-            className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden max-w-72 whitespace-normal rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white shadow-lg group-hover:block"
-          >
-            {ot?.plan?.gamme?.nom || 'Non renseignée'}
-          </div>
+      <td className="max-w-[280px] px-5 py-4 align-top">
+        <div className="truncate text-sm font-black text-slate-900" title={ot?.machine?.nom || undefined}>{ot?.machine?.nom || 'Machine inconnue'}</div>
+        <div className="mt-1 truncate text-xs text-slate-500">{ot?.machine?.modele || ot?.machine?.numero_serie || 'Modèle non renseigné'}</div>
+        <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600" title={ot?.plan?.gamme?.nom || undefined}>
+          <Wrench size={12} className="flex-shrink-0" />
+          <span className="truncate">{ot?.plan?.gamme?.nom || 'Gamme non renseignée'}</span>
         </div>
       </td>
-      <td className="px-4 py-3">
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getTypeClass(ot?.type || null)}`}>
-          {ot?.type || '-'}
+      <td className="px-5 py-4 align-top">
+        <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold capitalize ${getTypeClass(ot?.type || null)}`}>
+          {ot?.type || 'Non défini'}
         </span>
       </td>
-      <td className="px-4 py-3">
+      <td className="px-5 py-4 align-top">
         {intervention.technicien ? (
-          <div className="flex items-center gap-2 text-sm text-slate-900">
-            <User size={14} className="text-slate-400" />
-            {intervention.technicien.nom}
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-500"><User size={14} /></span>
+            <span className="max-w-36 truncate" title={intervention.technicien.nom}>{intervention.technicien.nom}</span>
           </div>
-        ) : (
-          <span className="text-sm text-slate-400">Non assigné</span>
-        )}
+        ) : <span className="text-sm italic text-slate-400">Non assigné</span>}
       </td>
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-2 text-sm text-slate-900">
-          <Calendar size={14} className="text-slate-400" />
-          {formatDate(intervention.date_debut)}
+      <td className="px-5 py-4 align-top">
+        <div className="flex items-start gap-2 text-sm font-semibold text-slate-700">
+          <Calendar size={15} className="mt-0.5 flex-shrink-0 text-slate-400" />
+          <span>{formatDate(intervention.date_debut)}</span>
+        </div>
+        <div className="mt-1.5 flex items-center gap-2 pl-[23px] text-xs font-medium text-slate-500">
+          <Clock size={13} /> {formatDuration(intervention.duree_minutes)}
         </div>
       </td>
-      <td className="px-4 py-3 text-sm text-slate-900">{formatDuration(intervention.duree_minutes)}</td>
-      <td className="px-4 py-3">
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${result.className}`}>
-          <ResultIcon size={12} />
-          {result.label}
+      <td className="px-5 py-4 align-top">
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${result.className}`}>
+          <ResultIcon size={12} /> {result.label}
         </span>
       </td>
-      <td className="px-4 py-3">
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${adminValidation.className}`}>
-          {intervention.valide ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-          {adminValidation.label}
-        </span>
+      <td className="min-w-[190px] px-5 py-4 align-top">
+        <div className="space-y-2">
+          <div>
+            <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">Administrateur</span>
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${adminValidation.className}`}>
+              {intervention.valide ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}{adminValidation.label}
+            </span>
+          </div>
+          <div>
+            <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">Client</span>
+            <ClientValidationStatus intervention={intervention} onOpen={onOpenClientValidation} />
+          </div>
+        </div>
       </td>
-      <td className="px-4 py-3 w-[180px]">
-        <ClientValidationStatus intervention={intervention} onOpen={onOpenClientValidation} />
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex justify-center gap-2">
+      <td className="sticky right-0 bg-white px-4 py-4 align-top shadow-[-5px_0_10px_-8px_rgba(15,23,42,0.35)]">
+        <div className="flex justify-center gap-1.5">
           <button
             onClick={handleDownloadPdf}
             disabled={downloadingPdf}
-            className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
             title="Télécharger PDF OT"
           >
             {downloadingPdf ? (
@@ -1028,7 +1035,7 @@ function InterventionRow({
           </button>
           <button
             onClick={onOpenIntervention}
-            className="p-2 hover:bg-[#ff6b57]/10 text-[#ff6b57] rounded-lg transition-colors font-semibold"
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#ff6b57] text-white transition hover:bg-[#e54838]"
             title="Voir détails intervention"
           >
             <Eye size={18} />
@@ -1054,16 +1061,17 @@ function InterventionCard({
   const adminValidation = getInterventionValidationConfig(intervention.valide, 'admin');
 
   return (
-    <div className="rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-md">
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-orange-200 hover:shadow-md">
+      <div className="p-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <div className="font-black text-slate-900 text-base">#{intervention.id.slice(0, 8)}</div>
+            <div className="font-mono text-xs font-black text-[#d93f34]">#{intervention.id.slice(0, 8)}</div>
             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getTypeClass(ot?.type || null)}`}>
               {ot?.type || '-'}
             </span>
           </div>
-          <div className="mt-1.5 font-semibold text-slate-700 text-sm">{ot?.machine?.nom || 'Machine inconnue'}</div>
+          <div className="mt-2 truncate text-base font-black text-slate-900">{ot?.machine?.nom || 'Machine inconnue'}</div>
           <div className="mt-1 flex items-center gap-1 text-xs font-medium text-slate-500">
             <Wrench size={12} />
             <span className="truncate">{ot?.plan?.gamme?.nom || 'Gamme non renseignée'}</span>
@@ -1075,7 +1083,7 @@ function InterventionCard({
         </span>
       </div>
 
-      <div className="mt-4 space-y-2.5 text-sm">
+      <div className="mt-4 grid grid-cols-1 gap-2.5 rounded-xl bg-slate-50 p-3 text-sm sm:grid-cols-2">
         <div className="flex items-center gap-2 text-slate-700">
           <Calendar size={15} className="text-slate-400" />
           <span className="font-medium">{formatDate(intervention.date_debut)}</span>
@@ -1090,7 +1098,7 @@ function InterventionCard({
             <span className="font-medium">{intervention.technicien.nom}</span>
           </div>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:col-span-2">
           <div className="flex-1 flex items-center gap-2">
             {intervention.valide ? (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -1108,19 +1116,20 @@ function InterventionCard({
       </div>
 
       {onOpenClientValidation && (
-        <div className="mt-4 pt-4 border-t border-slate-100">
+        <div className="mt-4 border-t border-slate-100 pt-4">
           <ClientValidationStatus intervention={intervention} onOpen={onOpenClientValidation} />
         </div>
       )}
+      </div>
 
       <button
         onClick={onOpenIntervention}
-        className="mt-4 w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-gradient-to-r from-[#ff735f] to-[#f04438] hover:from-[#ff6b57] hover:to-[#e03d30] text-white rounded-lg font-bold text-sm transition-all shadow-lg shadow-red-200/50"
+        className="inline-flex w-full items-center justify-center gap-2 border-t border-orange-100 bg-orange-50 px-3 py-3 text-sm font-black text-[#d93f34] transition hover:bg-orange-100"
       >
         <Eye size={16} />
         Voir détails
       </button>
-    </div>
+    </article>
   );
 }
 

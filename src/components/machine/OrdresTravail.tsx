@@ -113,6 +113,7 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
         machine.plans_maintenance.forEach((plan: any) => {
           if (plan.ordres_travail) {
             plan.ordres_travail.forEach((ot: any) => {
+              if (ot.machine_id !== machine.id) return;
               ordreIds.push(ot.id);
             });
           }
@@ -123,6 +124,7 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
       const machineWithOrdres = machine as Machine & { ordres_travail?: any[] };
       if (machineWithOrdres.ordres_travail) {
         machineWithOrdres.ordres_travail.forEach((ot: any) => {
+          if (ot.machine_id !== machine.id) return;
           if (!ordreIds.includes(ot.id)) { // Éviter les doublons
             ordreIds.push(ot.id);
           }
@@ -160,6 +162,7 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
       machine.plans_maintenance.forEach((plan: { ordres_travail: any[]; type: any; gamme: { nom: any; type: any; }; }) => {
         if (plan.ordres_travail) {
           plan.ordres_travail.forEach((ot: any) => {
+            if (ot.machine_id !== machine.id) return;
             const intervention = interventions.find(i => i.ordre_travail_id === ot.id);
             ordres.push({
               ...ot,
@@ -176,6 +179,7 @@ const OrdresTravail: React.FC<OrdresTravailProps> = ({
     const machineWithOrdres = machine as Machine & { ordres_travail?: any[] };
     if (machineWithOrdres.ordres_travail) {
       machineWithOrdres.ordres_travail.forEach((ot: any) => {
+        if (ot.machine_id !== machine.id) return;
         // Éviter les doublons (si l'ordre est déjà dans les plans)
         const existeDeja = ordres.some(ordre => ordre.id === ot.id);
         if (!existeDeja) {

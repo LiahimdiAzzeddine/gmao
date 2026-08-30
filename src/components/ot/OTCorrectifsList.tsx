@@ -15,12 +15,16 @@ import {
   Eye,
   Edit,
   Trash2,
-  Loader2
+  Loader2,
+  ListChecks
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 interface OrdreTravail {
   id: string;
+  numot: number | string | null;
+  plan_id: string | null;
+  ot_parent_id: string | null;
   machine_id: string;
   technicien_id: string | null;
   date_programmee: string;
@@ -44,6 +48,23 @@ interface OrdreTravail {
     id: string;
     nom: string;
   };
+  plan?: {
+    id: string;
+    numero: number | string | null;
+  } | null;
+  ot_parent?: {
+    plan_id: string | null;
+    plan?: {
+      id: string;
+      numero: number | string | null;
+    } | null;
+  } | null;
+}
+
+function getPlanReference(ordre: OrdreTravail) {
+  const plan = ordre.plan || ordre.ot_parent?.plan || null;
+  const id = ordre.plan_id || ordre.ot_parent?.plan_id || plan?.id || null;
+  return { id, numero: plan?.numero ?? null };
 }
 
 export default function OTCorrectifsList() {
@@ -102,7 +123,59 @@ export default function OTCorrectifsList() {
 
       if (error) throw error;
 
-      setOrdres(data || []);
+      const baseOrdres = (data || []) as unknown as OrdreTravail[];
+      const parentIds = [...new Set(
+        baseOrdres
+          .filter((ordre) => !ordre.plan_id && ordre.ot_parent_id)
+          .map((ordre) => ordre.ot_parent_id as string)
+      )];
+      const parentPlanByOt = new Map<string, string>();
+
+      if (parentIds.length > 0) {
+        const { data: parents, error: parentsError } = await supabase
+          .from('ordres_travail')
+          .select('id, plan_id')
+          .in('id', parentIds);
+
+        if (parentsError) {
+          console.warn('Impossible de charger les plans des OT parents:', parentsError);
+        } else {
+          (parents || []).forEach((parent) => {
+            if (parent.plan_id) parentPlanByOt.set(parent.id, parent.plan_id);
+          });
+        }
+      }
+
+      const planIds = [...new Set(
+        baseOrdres
+          .map((ordre) => ordre.plan_id || (ordre.ot_parent_id ? parentPlanByOt.get(ordre.ot_parent_id) : null))
+          .filter((planId): planId is string => Boolean(planId))
+      )];
+      const plansById = new Map<string, { id: string; numero: number | string | null }>();
+
+      if (planIds.length > 0) {
+        const { data: plans, error: plansError } = await supabase
+          .from('plans_maintenance')
+          .select('id, numero')
+          .in('id', planIds);
+
+        if (plansError) {
+          console.warn('Impossible de charger les références des plans:', plansError);
+        } else {
+          (plans || []).forEach((plan) => plansById.set(plan.id, plan));
+        }
+      }
+
+      setOrdres(baseOrdres.map((ordre) => {
+        const parentPlanId = ordre.ot_parent_id ? parentPlanByOt.get(ordre.ot_parent_id) || null : null;
+        return {
+          ...ordre,
+          plan: ordre.plan_id ? plansById.get(ordre.plan_id) || null : null,
+          ot_parent: ordre.ot_parent_id
+            ? { plan_id: parentPlanId, plan: parentPlanId ? plansById.get(parentPlanId) || null : null }
+            : null,
+        };
+      }));
     } catch (err) {
       console.error('Erreur lors du chargement:', err);
       toast.error('Erreur lors du chargement des ordres de travail');
@@ -128,6 +201,10 @@ export default function OTCorrectifsList() {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(o => 
+        o.numot?.toString().toLowerCase().includes(term) ||
+        o.id.toLowerCase().includes(term) ||
+        getPlanReference(o).id?.toLowerCase().includes(term) ||
+        getPlanReference(o).numero?.toString().toLowerCase().includes(term) ||
         o.machine?.nom?.toLowerCase().includes(term) ||
         o.machine?.client?.raison_sociale?.toLowerCase().includes(term) ||
         o.machine?.client?.prenom?.toLowerCase().includes(term) ||
@@ -269,40 +346,38 @@ export default function OTCorrectifsList() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+      <div className="flex min-h-72 items-center justify-center rounded-2xl border border-slate-200 bg-white">
         <div className="text-center">
-          <div className="relative">
-            <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-[#f98440]" />
-            <div className="absolute inset-0 w-12 h-12 border-4 border-orange-200 rounded-full mx-auto"></div>
-          </div>
-          <p className="text-slate-600 font-medium">Chargement des ordres de travail...</p>
-          <p className="text-slate-500 text-sm mt-1">Veuillez patienter</p>
+          <Loader2 className="mx-auto mb-3 h-9 w-9 animate-spin text-[#f98440]" />
+          <p className="text-sm font-bold text-slate-700">Chargement des OT correctifs…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-2">
-      <div className="mx-auto max-w-full">
+    <div className="pb-14">
+      <div className="mx-auto px-3 sm:px-5 lg:px-6">
         {/* En-tête */}
-        <div className="mb-5 overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-100">
-          <div className="border-b border-orange-200 bg-[#f98440] px-5 py-4 md:px-6">
-            <div className="flex items-center justify-between">
+        <div className="mb-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-5 py-5 md:px-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
-                <Wrench className="h-7 w-7 text-white" />
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 text-[#d95708]">
+                  <Wrench className="h-6 w-6" />
+                </span>
                 <div>
-                  <h1 className="text-xl font-black text-white md:text-2xl">
+                  <h1 className="text-xl font-black text-slate-900 md:text-2xl">
                     Ordres de Travail Correctifs
                   </h1>
-                  <p className="mt-1 text-xs font-medium text-white/80 sm:text-sm">
+                  <p className="mt-1 text-xs font-medium text-slate-500 sm:text-sm">
                     Gestion des interventions correctives • {filteredOrdres.length} OT{filteredOrdres.length > 1 ? 's' : ''}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => navigate('/admin/demande-maintenance/new')}
-                className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-bold text-[#f98440] shadow-sm transition-colors hover:bg-orange-50"
+                className="flex items-center justify-center gap-2 rounded-xl bg-[#ee6b1a] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#d95708]"
               >
                 <Plus className="w-5 h-5" />
                 Nouveau OT Correctif
@@ -311,29 +386,29 @@ export default function OTCorrectifsList() {
           </div>
 
           {/* Filtres et recherche */}
-          <div className="border-b border-slate-200 p-4 md:p-5">
-            <div className="flex flex-col md:flex-row gap-4">
+          <div className="bg-slate-50/70 p-4 md:p-5">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(280px,1fr)_190px_220px_220px]">
               {/* Recherche */}
               <div className="flex-1">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
                   <input
                     type="text"
-                    placeholder="Rechercher par machine, client, technicien, cause..."
+                    placeholder="Rechercher par OT, plan, machine, client ou technicien…"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-4 focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
+                    className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-4 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                   />
                 </div>
               </div>
 
               {/* Filtre par statut */}
-              <div className="flex items-center gap-2">
-                <Filter className="w-5 h-5 text-slate-500" />
+              <div className="relative">
+                <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <select
                   value={filterStatut}
                   onChange={(e) => setFilterStatut(e.target.value)}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
+                  className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                 >
                   <option value="tous">Tous les statuts</option>
                   <option value="prévu">À faire</option>
@@ -345,12 +420,12 @@ export default function OTCorrectifsList() {
               </div>
 
               {/* Filtre par client */}
-              <div className="flex items-center gap-2">
-                <User className="w-5 h-5 text-slate-500" />
+              <div className="relative">
+                <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <select
                   value={filterClient}
                   onChange={(e) => setFilterClient(e.target.value)}
-                  className="min-w-52 rounded-lg border border-slate-300 bg-white px-3 py-2.5 focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
+                  className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                 >
                   <option value="tous">Tous les clients</option>
                   {clients.map((client) => (
@@ -362,12 +437,12 @@ export default function OTCorrectifsList() {
               </div>
 
               {/* Tri par date de création */}
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-slate-500" />
+              <div className="relative">
+                <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <select
                   value={sortCreation}
                   onChange={(e) => setSortCreation(e.target.value as 'recent' | 'ancien')}
-                  className="min-w-48 rounded-lg border border-slate-300 bg-white px-3 py-2.5 focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
+                  className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-sm focus:border-[#f98440] focus:ring-2 focus:ring-[#f98440]/30"
                   aria-label="Trier par date de création"
                 >
                   <option value="recent">Création : plus récents</option>
@@ -377,26 +452,26 @@ export default function OTCorrectifsList() {
             </div>
 
             {/* Statistiques */}
-            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-              <div className="rounded-lg bg-[#f98440] p-3 text-white shadow-lg shadow-orange-200 md:p-4">
-                <div className="text-2xl font-black text-white">
+            <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-200 pt-4 md:grid-cols-4">
+              <div className="rounded-xl border border-orange-100 bg-white p-3 md:p-4">
+                <div className="text-2xl font-black text-[#d95708]">
                   {ordres.filter(o => o.statut === 'prévu').length}
                 </div>
-                <div className="mt-1 text-xs font-bold text-white/80">À faire</div>
+                <div className="mt-1 text-xs font-bold text-slate-500">À faire</div>
               </div>
-              <div className="rounded-lg border border-yellow-100 bg-yellow-50 p-3 md:p-4">
+              <div className="rounded-xl border border-yellow-100 bg-white p-3 md:p-4">
                 <div className="text-2xl font-bold text-yellow-600">
                   {ordres.filter(o => o.statut === 'en_cours').length}
                 </div>
                 <div className="text-sm text-yellow-600 mt-1">En cours</div>
               </div>
-              <div className="rounded-lg border border-green-100 bg-green-50 p-3 md:p-4">
+              <div className="rounded-xl border border-green-100 bg-white p-3 md:p-4">
                 <div className="text-2xl font-bold text-green-600">
                   {ordres.filter(o => o.statut === 'terminé' || o.statut === 'clôturé_avec_anomalie').length}
                 </div>
                 <div className="text-sm text-green-600 mt-1">Clôturés</div>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 md:p-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-3 md:p-4">
                 <div className="text-2xl font-bold text-slate-600">
                   {ordres.length}
                 </div>
@@ -408,7 +483,7 @@ export default function OTCorrectifsList() {
 
         {/* Table des ordres */}
         {filteredOrdres.length === 0 ? (
-          <div className="rounded-lg bg-white p-12 text-center shadow-sm ring-1 ring-slate-100">
+          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
             <Wrench className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-slate-700 mb-2">
               Aucun ordre de travail trouvé
@@ -426,12 +501,13 @@ export default function OTCorrectifsList() {
               {paginatedOrdres.map((ordre) => (
                 <div
                   key={ordre.id}
-                  className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden border-l-4 border-l-orange-400"
+                  className="overflow-hidden rounded-xl border border-slate-200 border-l-4 border-l-orange-400 bg-white shadow-sm"
                 >
                   {/* Header de la carte */}
                   <div className="p-3 border-b border-slate-200 bg-orange-50/30">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
+                        <p className="mb-1 font-mono text-[11px] font-bold text-[#d95708]">OT #{ordre.numot ?? ordre.id.slice(0, 8)}</p>
                         <h3 className="text-sm font-bold text-slate-900">
                           {ordre.machine?.nom || 'Machine inconnue'}
                         </h3>
@@ -445,6 +521,24 @@ export default function OTCorrectifsList() {
 
                   {/* Contenu de la carte */}
                   <div className="p-3 space-y-2">
+                    {/* Plan de maintenance associé */}
+                    <div className="flex items-center gap-2">
+                      <ListChecks size={14} className="flex-shrink-0 text-slate-400" />
+                      <span className="text-xs text-slate-600">Plan :</span>
+                      {getPlanReference(ordre).id ? (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/admin/plans-maintenance/${getPlanReference(ordre).id}`)}
+                          className="rounded-md bg-orange-50 px-2 py-1 font-mono text-xs font-bold text-[#d95708] transition hover:bg-orange-100 hover:underline"
+                          title={getPlanReference(ordre).id || undefined}
+                        >
+                          #{getPlanReference(ordre).numero ?? getPlanReference(ordre).id?.slice(0, 8)}
+                        </button>
+                      ) : (
+                        <span className="text-xs italic text-slate-400">Non associé</span>
+                      )}
+                    </div>
+
                     {/* Date de création */}
                     <div className="flex items-center gap-2">
                       <Clock size={14} className="text-slate-400 flex-shrink-0" />
@@ -516,13 +610,16 @@ export default function OTCorrectifsList() {
             </div>
 
             {/* VUE DESKTOP - TABLE */}
-            <div className="hidden overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-100 lg:block">
+            <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1200px]">
+                <table className="w-full min-w-[1300px]">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                         OT #
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Plan
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                         Machine
@@ -554,9 +651,28 @@ export default function OTCorrectifsList() {
                     {paginatedOrdres.map((ordre) => (
                       <tr key={ordre.id} className="group bg-white hover:bg-orange-50/50 transition-colors border-l-4 border-l-orange-400">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-mono text-slate-900 font-medium">
-                            #{ordre.id.substring(0, 8)}
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/ordres-travail/${ordre.id}`)}
+                            className="font-mono text-sm font-bold text-slate-800 transition hover:text-[#d95708] hover:underline"
+                            title={ordre.id}
+                          >
+                            #{ordre.numot ?? ordre.id.substring(0, 8)}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getPlanReference(ordre).id ? (
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/admin/plans-maintenance/${getPlanReference(ordre).id}`)}
+                              className="rounded-lg bg-orange-50 px-2.5 py-1.5 font-mono text-xs font-bold text-[#d95708] transition hover:bg-orange-100 hover:underline"
+                              title={getPlanReference(ordre).id || undefined}
+                            >
+                              #{getPlanReference(ordre).numero ?? getPlanReference(ordre).id?.slice(0, 8)}
+                            </button>
+                          ) : (
+                            <span className="text-sm italic text-slate-400">Non associé</span>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-sm text-slate-900 font-medium">
@@ -605,7 +721,7 @@ export default function OTCorrectifsList() {
                             {ordre.cause || '-'}
                           </div>
                         </td>
-                        <td className="sticky right-0 bg-white group-hover:bg-orange-50/50 px-6 py-4 whitespace-nowrap shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)]">
+                        <td className="sticky right-0 bg-white px-6 py-4 whitespace-nowrap shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)]">
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => navigate(`/ordres-travail/${ordre.id}`)}
@@ -641,7 +757,7 @@ export default function OTCorrectifsList() {
 
         {/* Pagination */}
         {filteredOrdres.length > itemsPerPage && (
-          <div className="mt-5 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100">
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               {/* Informations de pagination */}
               <div className="text-sm text-slate-600">
