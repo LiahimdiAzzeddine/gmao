@@ -17,6 +17,7 @@ export interface FormData {
 
 export interface Plan {
   id: string;
+  numero?: number;
   type: 'préventive' | 'corrective';
   machine_id?: string;
   lot_id?: string;
@@ -30,6 +31,8 @@ export interface Plan {
   date_debut: string;
   date_fin?: string;
   machine?: Machine;
+  machines?: Machine[];
+  plan_machines?: Array<{ machine_id: string; machine?: Machine }>;
   lot?: { nom: string };
   gamme?: { nom: string };
 }

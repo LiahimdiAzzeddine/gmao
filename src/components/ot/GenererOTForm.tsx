@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
 import { supabase } from '../../lib/supabase';
+import { generateMaintenancePlanDates } from '../../utils/maintenancePlanDates';
 import {
   Calendar,
   Settings,
@@ -20,11 +21,13 @@ import {
 
 type Plan = {
   id: string;
-  machine_id: string;
-  nom_machine: string;
+  numero?: number;
+  machines: Array<{ id: string; nom: string }>;
+  machines_manquantes?: Array<{ id: string; nom: string }>;
   type_recurrence: string;
   intervalle: number;
   date_debut: string;
+  date_fin?: string | null;
   jour_semaine?: number;
   forcer_jour_semaine?: boolean;
   semaine_du_mois?: number;
@@ -133,96 +136,9 @@ export default function GenererOTForm() {
   };
 
   const planNecessiteOT = (plan: Plan, date: Date): boolean => {
-    const planDebut = new Date(plan.date_debut);
-    planDebut.setHours(0, 0, 0, 0);
-    
-    // Normaliser la date testée à minuit
     const dateTest = new Date(date);
     dateTest.setHours(0, 0, 0, 0);
-    
-    if (dateTest < planDebut) return false;
-
-    // Generate dates using the EXACT same logic as MaintenancePreview
-    let currentDate = new Date(planDebut);
-    currentDate.setHours(0, 0, 0, 0);
-    
-    const maxIterations = 1000;
-    let iterations = 0;
-    
-    while (currentDate <= dateTest && iterations < maxIterations) {
-      // Check if current date matches the target date
-      if (
-        currentDate.getFullYear() === dateTest.getFullYear() &&
-        currentDate.getMonth() === dateTest.getMonth() &&
-        currentDate.getDate() === dateTest.getDate()
-      ) {
-        return true;
-      }
-      
-      // Move to next occurrence based on recurrence type
-      // This logic MUST match MaintenancePreview.generateUpcomingDates exactly
-      switch (plan.type_recurrence) {
-        case 'journalière':
-          currentDate.setDate(currentDate.getDate() + plan.intervalle);
-          break;
-          
-        case 'hebdomadaire':
-          currentDate.setDate(currentDate.getDate() + (7 * plan.intervalle));
-          break;
-          
-        case 'mensuelle':
-          if (plan.semaine_du_mois) {
-            // Si une semaine du mois est spécifiée, calculer la date dans cette semaine
-            currentDate.setMonth(currentDate.getMonth() + plan.intervalle);
-            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-            const targetDate = new Date(firstDay);
-            targetDate.setDate(1 + (plan.semaine_du_mois - 1) * 7);
-            if (targetDate.getMonth() === currentDate.getMonth()) {
-              currentDate = targetDate;
-            }
-          } else {
-            // Sinon, simplement ajouter les mois en préservant le jour du mois
-            const dayOfMonth = currentDate.getDate();
-            const currentMonth = currentDate.getMonth();
-            const currentYear = currentDate.getFullYear();
-            
-            // Calculer le nouveau mois et année
-            const newMonth = currentMonth + plan.intervalle;
-            const newYear = currentYear + Math.floor(newMonth / 12);
-            const finalMonth = newMonth % 12;
-            
-            // Créer une nouvelle date avec le même jour
-            currentDate = new Date(newYear, finalMonth, dayOfMonth);
-            
-            // Gérer le cas où le jour n'existe pas dans le nouveau mois (ex: 31 février)
-            // JavaScript ajuste automatiquement (31 fév devient 3 mars), donc on vérifie le mois
-            if (currentDate.getMonth() !== finalMonth) {
-              // Le jour était invalide, revenir au dernier jour du mois cible
-              currentDate = new Date(newYear, finalMonth + 1, 0);
-            }
-          }
-          break;
-          
-        case 'annuelle':
-          currentDate.setFullYear(currentDate.getFullYear() + plan.intervalle);
-          break;
-      }
-      
-      // Adjust for imposed day if specified (same as MaintenancePreview)
-      if (plan.forcer_jour_semaine && plan.jour_semaine !== undefined && plan.jour_semaine !== null) {
-        const maxDays = 7;
-        let daysChecked = 0;
-        while (currentDate.getDay() !== plan.jour_semaine && daysChecked < maxDays) {
-          currentDate.setDate(currentDate.getDate() + 1);
-          daysChecked++;
-        }
-      }
-      
-      currentDate.setHours(0, 0, 0, 0);
-      iterations++;
-    }
-    
-    return false;
+    return generateMaintenancePlanDates(plan, dateTest, dateTest, 5000).length > 0;
   };
 
   const chargerPlans = async (): Promise<Plan[]> => {
@@ -231,31 +147,38 @@ export default function GenererOTForm() {
         .from('plans_maintenance')
         .select(`
           id,
-          machine_id,
+          numero,
           type_recurrence,
           intervalle,
           date_debut,
+          date_fin,
           jour_semaine,
           forcer_jour_semaine,
           semaine_du_mois,
-          machines(nom)
+          plan_machines(machine_id, machine:machines(id, nom))
         `)
         .eq('statut', 'actif')
         .order('date_debut', { ascending: true });
 
       if (plansError) throw plansError;
 
-      const plansFormates: Plan[] = plansData.map((p: any) => ({
-        id: p.id,
-        machine_id: p.machine_id,
-        nom_machine: p.machines.nom,
-        type_recurrence: p.type_recurrence,
-        intervalle: p.intervalle,
-        date_debut: p.date_debut,
-        jour_semaine: p.jour_semaine,
-        forcer_jour_semaine: p.forcer_jour_semaine,
-        semaine_du_mois: p.semaine_du_mois,
-      }));
+      const plansFormates: Plan[] = plansData
+        .map((p: any) => ({
+          id: p.id,
+          numero: p.numero,
+          machines: (p.plan_machines || []).map((link: any) => ({
+            id: link.machine_id,
+            nom: link.machine?.nom || 'Machine inconnue',
+          })),
+          type_recurrence: p.type_recurrence,
+          intervalle: p.intervalle,
+          date_debut: p.date_debut,
+          date_fin: p.date_fin,
+          jour_semaine: p.jour_semaine,
+          forcer_jour_semaine: p.forcer_jour_semaine,
+          semaine_du_mois: p.semaine_du_mois,
+        }))
+        .filter((plan: Plan) => plan.machines.length > 0);
 
       setPlans(plansFormates);
       return plansFormates;
@@ -297,7 +220,7 @@ export default function GenererOTForm() {
 
       const { data: ordresExistants, error: ordresError } = await supabase
         .from('ordres_travail')
-        .select('plan_id, date_programmee')
+        .select('plan_id, machine_id, date_programmee')
         .not('plan_id', 'is', null)
         .gte('date_programmee', startDateStr)
         .lte('date_programmee', endDateStr);
@@ -306,7 +229,7 @@ export default function GenererOTForm() {
 
       // O(1) lookup set
       const otExistantsSet = new Set(
-        (ordresExistants || []).map(o => `${o.plan_id}_${o.date_programmee.split('T')[0]}`)
+        (ordresExistants || []).map(o => `${o.plan_id}_${o.machine_id}_${o.date_programmee.split('T')[0]}`)
       );
 
       const semainesAnalysees: SemaineDisponible[] = [];
@@ -334,7 +257,14 @@ export default function GenererOTForm() {
           // Formater la date en YYYY-MM-DD en heure locale (pas UTC)
           const dateStr = `${dateJour.getFullYear()}-${String(dateJour.getMonth() + 1).padStart(2, '0')}-${String(dateJour.getDate()).padStart(2, '0')}`;
           const plansNecessaires = plansAAnalyser.filter(plan => planNecessiteOT(plan, dateJour));
-          const plansManquants = plansNecessaires.filter(plan => !otExistantsSet.has(`${plan.id}_${dateStr}`));
+          const plansManquants = plansNecessaires
+            .map(plan => ({
+              ...plan,
+              machines_manquantes: plan.machines.filter(machine =>
+                !otExistantsSet.has(`${plan.id}_${machine.id}_${dateStr}`)
+              ),
+            }))
+            .filter(plan => plan.machines_manquantes.length > 0);
 
           if (plansManquants.length > 0) {
             joursManquants.push({
@@ -355,7 +285,13 @@ export default function GenererOTForm() {
             dateFin: fin.toISOString().split('T')[0],
             annee: anneeAnalyse,
             joursManquants,
-            totalOTManquants: joursManquants.reduce((t, j) => t + j.plansManquants.length, 0),
+            totalOTManquants: joursManquants.reduce(
+              (total, jour) => total + jour.plansManquants.reduce(
+                (planTotal, plan) => planTotal + (plan.machines_manquantes?.length || 0),
+                0
+              ),
+              0
+            ),
           });
         }
 
@@ -414,15 +350,18 @@ export default function GenererOTForm() {
       for (const semaine of selectedSemaines) {
         for (const jour of semaine.joursManquants) {
           for (const plan of jour.plansManquants) {
-            const { error } = await supabase.from('ordres_travail').insert({
+            const otToCreate = (plan.machines_manquantes || []).map(machine => ({
               plan_id: plan.id,
-              machine_id: plan.machine_id,
+              machine_id: machine.id,
               date_programmee: new Date(jour.date).toISOString(),
               statut: 'prévu',
               type: 'préventif',
-            });
+            }));
+            if (otToCreate.length === 0) continue;
+
+            const { error } = await supabase.from('ordres_travail').insert(otToCreate);
             if (error) throw error;
-            generated++;
+            generated += otToCreate.length;
             setGenerationProgress({ current: generated, total: totalOT });
           }
         }
@@ -449,25 +388,46 @@ export default function GenererOTForm() {
 
   const planOptions: PlanOption[] = plans.map(p => ({
     value: p.id,
-    label: `${p.nom_machine} - ${getRecurrenceDescription(p)}`,
+    label: `Plan #${p.numero ?? p.id.slice(0, 8)} · ${p.machines.length} machine${p.machines.length > 1 ? 's' : ''} · ${getRecurrenceDescription(p)}`,
   }));
 
   // Machine filter options derived from all plans
   const machineOptions: MachineOption[] = Array.from(
-    new Map(plans.map(p => [p.machine_id, p.nom_machine])).entries()
+    new Map(plans.flatMap(plan => plan.machines.map(machine => [machine.id, machine.nom] as const))).entries()
   ).map(([id, nom]) => ({ value: id, label: nom }));
 
   // Filter displayed weeks by machine
   const semainesFiltrees = machineFilter
     ? semainesDisponibles.filter(s =>
-        s.joursManquants.some(j => j.plansManquants.some(p => p.machine_id === machineFilter))
+        s.joursManquants.some(j => j.plansManquants.some(p =>
+          p.machines_manquantes?.some(machine => machine.id === machineFilter)
+        ))
       )
     : semainesDisponibles;
 
   const totalOTManquantsGlobal = semainesDisponibles.reduce((t, s) => t + s.totalOTManquants, 0);
+  const totalOccurrencesGlobal = semainesDisponibles.reduce(
+    (total, semaine) => total + semaine.joursManquants.reduce(
+      (jourTotal, jour) => jourTotal + jour.plansManquants.length,
+      0
+    ),
+    0
+  );
   const totalOTSelectionnes = semainesDisponibles
     .filter(s => semainesSelectionnees.includes(getSemaineKey(s)))
     .reduce((t, s) => t + s.totalOTManquants, 0);
+  const totalOccurrencesSelectionnees = semainesDisponibles
+    .filter(s => semainesSelectionnees.includes(getSemaineKey(s)))
+    .reduce(
+      (total, semaine) => total + semaine.joursManquants.reduce(
+        (jourTotal, jour) => jourTotal + jour.plansManquants.length,
+        0
+      ),
+      0
+    );
+
+  const getSemaineOccurrences = (semaine: SemaineDisponible) =>
+    semaine.joursManquants.reduce((total, jour) => total + jour.plansManquants.length, 0);
 
   const toutSelectionne =
     semainesFiltrees.length > 0 &&
@@ -578,10 +538,16 @@ export default function GenererOTForm() {
               </button>
             </header>
 
-            <div className="grid grid-cols-2 gap-3 border-b border-slate-200 px-5 py-3 sm:px-6">
+            <div className="grid grid-cols-1 gap-3 border-b border-slate-200 px-5 py-3 sm:grid-cols-3 sm:px-6">
               <div className="rounded-xl bg-orange-50 px-4 py-3">
                 <div className="text-xl font-bold text-orange-700">{semaineDetail.totalOTManquants}</div>
-                <div className="text-xs font-medium text-orange-700">OT manquants</div>
+                <div className="text-xs font-medium text-orange-700">OT à créer</div>
+                <div className="mt-1 text-[11px] text-orange-600">1 OT par machine</div>
+              </div>
+              <div className="rounded-xl bg-blue-50 px-4 py-3">
+                <div className="text-xl font-bold text-blue-700">{getSemaineOccurrences(semaineDetail)}</div>
+                <div className="text-xs font-medium text-blue-700">Occurrences de plan</div>
+                <div className="mt-1 text-[11px] text-blue-600">1 plan à une date</div>
               </div>
               <div className="rounded-xl bg-slate-100 px-4 py-3">
                 <div className="text-xl font-bold text-slate-700">{semaineDetail.joursManquants.length}</div>
@@ -590,6 +556,10 @@ export default function GenererOTForm() {
             </div>
 
             <div className="overflow-y-auto px-5 py-4 sm:px-6">
+              <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                <span className="font-semibold">Comment lire le total :</span>{' '}
+                une occurrence correspond à un plan prévu pour une date. Cette occurrence génère un OT pour chaque machine du plan qui n’en possède pas encore.
+              </div>
               <div className="space-y-3">
                 {semaineDetail.joursManquants.map(jour => (
                   <article key={jour.date} className="overflow-hidden rounded-xl border border-slate-200">
@@ -602,9 +572,14 @@ export default function GenererOTForm() {
                           year: 'numeric',
                         })}
                       </h3>
-                      <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
-                        {jour.plansManquants.length} plan{jour.plansManquants.length > 1 ? 's' : ''}
-                      </span>
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                          {jour.plansManquants.length} occurrence{jour.plansManquants.length > 1 ? 's' : ''}
+                        </span>
+                        <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-700">
+                          {jour.plansManquants.reduce((total, plan) => total + (plan.machines_manquantes?.length || 0), 0)} OT
+                        </span>
+                      </div>
                     </div>
                     <div className="divide-y divide-slate-100">
                       {jour.plansManquants.map((plan, index) => (
@@ -613,9 +588,22 @@ export default function GenererOTForm() {
                             {index + 1}
                           </span>
                           <div className="min-w-0">
-                            <div className="font-semibold text-slate-800">{plan.nom_machine}</div>
+                            <div className="font-semibold text-slate-800">
+                              Plan #{plan.numero ?? plan.id.slice(0, 8)}
+                            </div>
                             <div className="mt-0.5 text-xs text-slate-500">
                               {getRecurrenceDescription(plan)}
+                            </div>
+                            <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
+                              1 occurrence × {(plan.machines_manquantes || []).length} machine{(plan.machines_manquantes || []).length > 1 ? 's' : ''}
+                              {' = '}{(plan.machines_manquantes || []).length} OT
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {(plan.machines_manquantes || []).map(machine => (
+                                <span key={machine.id} className="rounded-md bg-white px-2 py-1 text-xs text-slate-600 ring-1 ring-slate-200">
+                                  {machine.nom}
+                                </span>
+                              ))}
                             </div>
                           </div>
                         </div>
@@ -642,7 +630,7 @@ export default function GenererOTForm() {
                   Rattraper les OT Préventifs Manqués
                 </h1>
                 <p className="mt-1.5 max-w-3xl text-sm leading-6 text-orange-50/90">
-                  Identifiez et générez les ordres de travail préventifs manqués depuis le début des plans jusqu'à aujourd'hui
+                  Analysez les dates prévues par chaque plan, puis créez un OT pour chaque machine concernée
                 </p>
               </div>
             </div>
@@ -653,12 +641,11 @@ export default function GenererOTForm() {
             <div className="flex gap-3">
               <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-blue-800">
-                <p className="font-medium mb-1">Détection des OT manqués (semaines passées)</p>
+                <p className="font-medium mb-1">Un plan peut générer plusieurs OT pour une même date</p>
                 <p>
-                  Le système analyse automatiquement toutes les semaines passées depuis le début
-                  des plans de maintenance jusqu'à la semaine actuelle et identifie chaque jour
-                  pour lequel des ordres de travail préventifs auraient dû être créés mais sont manquants.
-                  Cela permet de rattraper les OT en retard.
+                  Le plan détermine les dates. Pour chaque date prévue, le système vérifie toutes les
+                  machines associées au plan. Une occurrence de plan concernant 2 machines produit donc
+                  2 OT distincts. Les OT déjà présents ne sont pas comptés.
                 </p>
               </div>
             </div>
@@ -811,7 +798,7 @@ export default function GenererOTForm() {
             ) : (
               <>
                 {/* Statistiques */}
-                <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+                <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-6">
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
                     <div className="text-xl font-bold leading-none text-slate-700">
                       {modeFiltrePlans === 'tous' ? plans.length : plansSelectionnes.length}
@@ -823,8 +810,12 @@ export default function GenererOTForm() {
                     <div className="text-sm text-orange-600 mt-1">Semaines en retard</div>
                   </div>
                   <div className="rounded-xl border border-blue-200 bg-blue-50 p-3.5">
-                    <div className="text-xl font-bold leading-none text-blue-600">{semainesSelectionnees.length}</div>
-                    <div className="text-sm text-blue-600 mt-1">Semaines sélectionnées</div>
+                    <div className="text-xl font-bold leading-none text-blue-600">{totalOccurrencesGlobal}</div>
+                    <div className="text-sm text-blue-600 mt-1">Occurrences manquantes</div>
+                  </div>
+                  <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-3.5">
+                    <div className="text-xl font-bold leading-none text-cyan-700">{semainesSelectionnees.length}</div>
+                    <div className="text-sm text-cyan-700 mt-1">Semaines sélectionnées</div>
                   </div>
                   <div className="rounded-xl border border-red-200 bg-red-50 p-3.5">
                     <div className="text-xl font-bold leading-none text-red-600">{totalOTManquantsGlobal}</div>
@@ -971,9 +962,13 @@ export default function GenererOTForm() {
                             </div>
 
                             <div className="mb-2 flex items-center justify-between rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs">
-                              <span className="font-medium text-slate-600">
-                                {semaine.totalOTManquants} OT manquant{semaine.totalOTManquants > 1 ? 's' : ''}
-                              </span>
+                              <div className="flex flex-wrap items-center gap-1.5 font-medium text-slate-600">
+                                <span>{getSemaineOccurrences(semaine)} occurrence{getSemaineOccurrences(semaine) > 1 ? 's' : ''}</span>
+                                <span className="text-slate-400">→</span>
+                                <span className="font-semibold text-orange-700">
+                                  {semaine.totalOTManquants} OT
+                                </span>
+                              </div>
                               <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-slate-200">
                                 {semaine.joursManquants.length} jour{semaine.joursManquants.length > 1 ? 's' : ''}
                               </span>
@@ -996,10 +991,18 @@ export default function GenererOTForm() {
                                         : null;
                                       return (
                                         <div key={idx} className="border-l-2 border-orange-200 pl-2 text-[11px] leading-tight">
-                                          <div className="truncate font-medium text-slate-700" title={p.nom_machine}>{p.nom_machine}</div>
+                                          <div className="truncate font-medium text-slate-700" title={p.id}>
+                                            Plan #{p.numero ?? p.id.slice(0, 8)} · 1 occurrence → {p.machines_manquantes?.length || 0} OT
+                                          </div>
                                           <div className="truncate text-[10px] text-slate-500">
                                             {getRecurrenceDescription(p)}
                                             {jourNom && ` • ${jourNom}`}
+                                          </div>
+                                          <div
+                                            className="truncate text-[10px] text-slate-500"
+                                            title={(p.machines_manquantes || []).map(machine => machine.nom).join(', ')}
+                                          >
+                                            {(p.machines_manquantes || []).map(machine => machine.nom).join(', ')}
                                           </div>
                                         </div>
                                       );
@@ -1031,8 +1034,8 @@ export default function GenererOTForm() {
                           <div>
                             <p className="text-sm font-medium text-green-800 mb-1">Rattrapage prévu</p>
                             <p className="text-sm text-green-700">
-                              {totalOTSelectionnes} ordre(s) de travail seront générés pour rattraper le retard
-                              sur {semainesSelectionnees.length} semaine(s) sélectionnée(s).
+                              {totalOccurrencesSelectionnees} occurrence(s) de plan sur {semainesSelectionnees.length} semaine(s)
+                              produiront {totalOTSelectionnes} ordre(s) de travail, à raison d’un OT par machine manquante.
                             </p>
                           </div>
                         </div>

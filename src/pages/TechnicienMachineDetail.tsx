@@ -54,13 +54,12 @@ export default function TechnicienMachineDetail() {
             lot:lots(*),
             secteur:secteurs(*)
           ),
-          plans_maintenance:plans_maintenance(
-            *,
-            lot:lots(*),
-            gamme:gammes_maintenance(*),
-            ordres_travail:ordres_travail(
+          plan_links:plan_machines(
+            plan:plans_maintenance(
               *,
-              technicien:profiles(id, nom)
+              lot:lots(*),
+              gamme:gammes_maintenance(*),
+              ordres_travail:ordres_travail(*, technicien:profiles(id, nom))
             )
           )
         `)
@@ -94,7 +93,7 @@ export default function TechnicienMachineDetail() {
       // Fusionner les données
       const machineWithAllOrdres = {
         ...machineData,
-        plans_maintenance: machineData.plans_maintenance || [],
+        plans_maintenance: (machineData.plan_links || []).map((link: any) => link.plan).filter(Boolean),
         ordres_travail: ordresTravailData || []
       };
 

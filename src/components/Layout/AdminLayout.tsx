@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertTriangle, BarChart3, ChevronLeft, ChevronRight, ClipboardList, Cpu, FileSpreadsheet, Home, Inbox, LogOut, Menu, Users, Wrench, X } from 'lucide-react';
+import { AlertTriangle, BarChart3, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Cpu, FileSpreadsheet, Home, Inbox, LogOut, Menu, Users, Wrench, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 type LayoutProps = {
@@ -21,6 +21,7 @@ const navItems: AdminNavItem[] = [
   { path: '/admin/machines', label: 'Machines', icon: Cpu, matches: ['/admin/machine/'] },
   { path: '/admin/clients', label: 'Clients', icon: Users, matches: ['/admin/client/'] },
   { path: '/admin/demandes', label: 'Demandes clients', icon: Inbox },
+  { path: '/admin/plans-maintenance', label: 'Plans de maintenance', icon: CalendarDays },
   { path: '/admin/ot-preventif', label: 'OT préventifs', icon: ClipboardList, matches: ['/admin/addOT'] },
   { path: '/admin/ot-correctifs', label: 'OT correctifs', icon: AlertTriangle, matches: ['/admin/demande-maintenance/'] },
   { path: '/admin/interventions', label: 'Interventions', icon: Wrench, matches: ['/admin/intervention/'] },
@@ -55,7 +56,11 @@ export function AdminLayout({ children, title = 'Administration', showBack = fal
   };
 
   const goTo = (path: string) => {
-    navigate(path);
+    const clientId = new URLSearchParams(location.search).get('client');
+    const destination = path === '/admin/plans-maintenance' && clientId
+      ? `${path}?client=${encodeURIComponent(clientId)}`
+      : path;
+    navigate(destination);
     setMobileMenuOpen(false);
   };
 

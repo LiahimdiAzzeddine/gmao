@@ -13,7 +13,7 @@ export function useGammes() {
     setLoading(true);
 
     const { data, error } = await supabase
-      .from('plans_maintenance')
+      .from('gammes_maintenance')
       .select('*')
       .order('nom');
 

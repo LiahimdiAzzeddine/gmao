@@ -88,13 +88,12 @@ export default function MachineDetail() {
             lot:lots(*),
             secteur:secteurs(*)
           ),
-          plans_maintenance:plans_maintenance(
-            *,
-            lot:lots(*),
-            gamme:gammes_maintenance(*),
-            ordres_travail:ordres_travail(
+          plan_links:plan_machines(
+            plan:plans_maintenance(
               *,
-              technicien:profiles(id, nom)
+              lot:lots(*),
+              gamme:gammes_maintenance(*),
+              ordres_travail:ordres_travail(*, technicien:profiles(id, nom))
             )
           )
         `)
@@ -129,7 +128,7 @@ export default function MachineDetail() {
       const machineWithAllOrdres = {
         ...machineData,
         // Garder les ordres de travail des plans existants
-        plans_maintenance: machineData.plans_maintenance || [],
+        plans_maintenance: (machineData.plan_links || []).map((link: any) => link.plan).filter(Boolean),
         // Ajouter tous les ordres de travail directement sur la machine
         ordres_travail: ordresTravailData || []
       };

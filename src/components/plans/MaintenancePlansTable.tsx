@@ -15,7 +15,8 @@ import {
   Users,
   Activity,
   User,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plan } from '../../types/plan';
@@ -142,7 +143,7 @@ export default function MaintenancePlansTable() {
   };
 
   const deletePlan = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce plan ?')) return;
+    if (!confirm('Supprimer ce plan pour toutes les machines associées ? Les OT liés seront également concernés selon les règles de la base.')) return;
 
     try {
       const { error } = await supabase
@@ -273,7 +274,9 @@ export default function MaintenancePlansTable() {
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-slate-800 mb-1">
-            {plan.machine?.nom || plan.lot?.nom || 'N/A'}
+            {plan.machines?.length
+              ? `${plan.machines.length} machine${plan.machines.length > 1 ? 's' : ''}`
+              : plan.machine?.nom || plan.lot?.nom || 'N/A'}
           </div>
           <div className="text-sm text-slate-600 mb-2">
             {plan.gamme?.nom}
@@ -281,11 +284,20 @@ export default function MaintenancePlansTable() {
           <div className="text-xs text-slate-500 mb-3">
             Client: {plan.machine?.client?.raison_sociale || plan.machine?.client?.prenom || 'N/A'}
           </div>
+          {plan.machines && plan.machines.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {plan.machines.slice(0, 3).map(machine => (
+                <span key={machine.id} className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600">{machine.nom}</span>
+              ))}
+              {plan.machines.length > 3 && <span className="px-1 py-1 text-xs font-medium text-slate-500">+{plan.machines.length - 3}</span>}
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-              plan.type === 'préventive' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
-            }`}>
-              {plan.type === 'préventive' ? 'Préventive' : 'Corrective'}
+            <span
+              className="rounded-full bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-slate-700"
+              title={plan.id}
+            >
+              #{plan.numero ?? plan.id.slice(0, 8)}
             </span>
             <span className={`px-2 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1 ${
               plan.statut === 'actif' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'
@@ -305,7 +317,7 @@ export default function MaintenancePlansTable() {
       <table className="w-full">
         <thead className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
           <tr>
-            <th className="text-left px-6 py-4 text-sm font-semibold text-slate-700">Type</th>
+            <th className="text-left px-6 py-4 text-sm font-semibold text-slate-700">ID</th>
             <th className="text-left px-6 py-4 text-sm font-semibold text-slate-700">Cible</th>
             <th className="text-left px-6 py-4 text-sm font-semibold text-slate-700">Gamme</th>
             <th className="text-left px-6 py-4 text-sm font-semibold text-slate-700">Récurrence</th>
@@ -317,19 +329,27 @@ export default function MaintenancePlansTable() {
           {plans.map((plan) => (
             <tr key={plan.id} className="hover:bg-slate-50 transition-colors">
               <td className="px-6 py-4">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  plan.type === 'préventive' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
-                }`}>
-                  {plan.type === 'préventive' ? 'Préventive' : 'Corrective'}
+                <span
+                  className="rounded-lg bg-slate-100 px-3 py-1 font-mono text-xs font-semibold text-slate-700"
+                  title={plan.id}
+                >
+                  #{plan.numero ?? plan.id.slice(0, 8)}
                 </span>
               </td>
               <td className="px-6 py-4">
                 <div className="text-sm font-medium text-slate-900">
-                  {plan.machine ? 'Machine' : 'Lot'}: {plan.machine?.nom || plan.lot?.nom || 'N/A'}
+                  {plan.machines?.length
+                    ? `${plan.machines.length} machine${plan.machines.length > 1 ? 's associées' : ' associée'}`
+                    : `${plan.machine ? 'Machine' : 'Lot'}: ${plan.machine?.nom || plan.lot?.nom || 'N/A'}`}
                 </div>
                 <div className="text-sm text-slate-500">
                   Client: {plan.machine?.client?.raison_sociale || plan.machine?.client?.prenom || 'N/A'}
                 </div>
+                {plan.machines && plan.machines.length > 0 && (
+                  <div className="mt-1 max-w-md truncate text-xs text-slate-500" title={plan.machines.map(machine => machine.nom).join(', ')}>
+                    {plan.machines.map(machine => machine.nom).join(', ')}
+                  </div>
+                )}
               </td>
               <td className="px-6 py-4 text-slate-700 font-medium">{plan.gamme?.nom}</td>
               <td className="px-6 py-4 text-slate-600 text-sm">
@@ -441,9 +461,20 @@ export default function MaintenancePlansTable() {
       {showClientModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="bg-gradient-to-r from-[#f15c00] to-[#ff7a2f] p-6 text-white">
-              <h2 className="text-2xl font-bold">Sélectionner un client</h2>
-              <p className="text-orange-100 text-sm mt-1">Choisissez le client et appliquez des filtres optionnels</p>
+            <div className="flex items-start justify-between gap-4 bg-gradient-to-r from-[#f15c00] to-[#ff7a2f] p-6 text-white">
+              <div>
+                <h2 className="text-2xl font-bold">Sélectionner un client</h2>
+                <p className="text-orange-100 text-sm mt-1">Choisissez le client et appliquez des filtres optionnels</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70"
+                aria-label="Retour à la page précédente"
+                title="Retour à la page précédente"
+              >
+                <X size={22} />
+              </button>
             </div>
             
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
@@ -579,7 +610,7 @@ export default function MaintenancePlansTable() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
               <input
                 type="text"
-                placeholder="Rechercher par machine..."
+                placeholder="Rechercher par ID ou machine..."
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#f15c00] focus:border-transparent transition-all"

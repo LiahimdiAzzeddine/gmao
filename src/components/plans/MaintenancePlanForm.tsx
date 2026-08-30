@@ -174,10 +174,22 @@ export default function PlanPreventifForm() {
   const loadPlanData = async (planId: string) => {
     setLoadingPlan(true);
     try {
+      let resolvedPlanId = planId;
+      const { data: alias } = await supabase
+        .from('plan_maintenance_aliases')
+        .select('plan_id')
+        .eq('legacy_plan_id', planId)
+        .maybeSingle();
+
+      if (alias?.plan_id) {
+        resolvedPlanId = alias.plan_id;
+        navigate(`/admin/plans-maintenance/${resolvedPlanId}`, { replace: true });
+      }
+
       const { data: plan, error: planError } = await supabase
         .from('plans_maintenance')
-        .select('*, machine:machines(*, client:clients(*))')
-        .eq('id', planId)
+        .select('*, machine:machines!plans_maintenance_machine_id_fkey(*, client:clients(*)), plan_machines(machine_id, machine:machines(*, client:clients(*)))')
+        .eq('id', resolvedPlanId)
         .single();
 
       if (planError) throw planError;
@@ -188,9 +200,9 @@ export default function PlanPreventifForm() {
 
       // Vérifier s'il existe des OT liés à ce plan
       const { count, error: countError } = await supabase
-        .from('ordres_travail')
-        .select('*', { count: 'exact', head: true })
-        .eq('plan_id', planId);
+          .from('ordres_travail')
+          .select('*', { count: 'exact', head: true })
+          .eq('plan_id', resolvedPlanId);
 
       if (countError) {
         console.error('Erreur lors du comptage des OT:', countError);
@@ -198,13 +210,18 @@ export default function PlanPreventifForm() {
         setHasExistingOT((count || 0) > 0);
       }
 
-      const clientId = plan.machine?.client_id || '';
+      const associatedMachineIds = (plan.plan_machines || []).map((item: any) => item.machine_id);
+      const loadedMachineIds = associatedMachineIds.length > 0
+        ? associatedMachineIds
+        : plan.machine_id ? [plan.machine_id] : [];
+      const firstAssociatedMachine = plan.plan_machines?.[0]?.machine;
+      const clientId = firstAssociatedMachine?.client_id || plan.machine?.client_id || '';
       const presetValue = findRecurrencePreset(plan.type_recurrence || '', plan.intervalle || 1);
       const isCustom = presetValue === 'custom';
 
       setFormData({
         client_id: clientId,
-        machine_ids: plan.machine_id ? [plan.machine_id] : [],
+        machine_ids: loadedMachineIds,
         gamme_id: plan.gamme_id,
         type_recurrence: plan.type_recurrence || '',
         intervalle: plan.intervalle || 1,
@@ -300,27 +317,19 @@ export default function PlanPreventifForm() {
         statut: formData.statut
       };
 
-      if (isEditMode) {
-        const { error: updateError } = await supabase
-          .from('plans_maintenance')
-          .update({ ...basePlanData, machine_id: formData.machine_ids[0] })
-          .eq('id', id);
+      const { error: saveError } = await supabase.rpc('save_maintenance_plan', {
+        p_plan_id: isEditMode ? id : null,
+        p_plan: basePlanData,
+        p_machine_ids: formData.machine_ids,
+      });
 
-        if (updateError) throw updateError;
-        toast.success('Plan de maintenance modifié avec succès');
-      } else {
-        const plansToInsert = formData.machine_ids.map(machine_id => ({
-          ...basePlanData,
-          machine_id
-        }));
+      if (saveError) throw saveError;
 
-        const { error: insertError } = await supabase
-          .from('plans_maintenance')
-          .insert(plansToInsert);
-
-        if (insertError) throw insertError;
-        toast.success(`${plansToInsert.length} plan(s) de maintenance créé(s) avec succès`);
-      }
+      toast.success(
+        isEditMode
+          ? 'Plan de maintenance modifié avec succès'
+          : `Plan créé avec succès pour ${formData.machine_ids.length} machine(s)`
+      );
 
       navigate('/admin/plans-maintenance');
     } catch (err) {
@@ -500,7 +509,7 @@ export default function PlanPreventifForm() {
               <p className="text-slate-600">
                 {isEditMode 
                   ? 'Mise à jour du plan de maintenance...' 
-                  : `Création de ${formData.machine_ids.length} plan(s) de maintenance...`
+                  : `Création d'un plan pour ${formData.machine_ids.length} machine(s)...`
                 }
               </p>
               <div className="mt-4 flex items-center justify-center gap-2 text-sm text-slate-500">
@@ -587,13 +596,10 @@ export default function PlanPreventifForm() {
                       selectedIds={formData.machine_ids}
                       onChange={(ids) => setFormData(prev => ({
                         ...prev,
-                        machine_ids: isEditMode ? ids.slice(-1) : ids,
+                        machine_ids: ids,
                       }))}
                       placeholder={isEditMode ? 'Sélectionner une machine...' : 'Sélectionner des machines...'}
                     />
-                    {isEditMode && (
-                      <p className="mt-2 text-xs text-slate-500">Un plan existant ne peut être associé qu'à une seule machine.</p>
-                    )}
                     {filteredMachines.length === 0 && (
                       <p className="mt-2 flex items-center gap-1.5 text-sm text-amber-700">
                         <AlertCircle className="h-4 w-4" /> Ce client ne possède aucune machine disponible.

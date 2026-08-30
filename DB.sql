@@ -500,3 +500,18 @@ CREATE TABLE public.plan_action_failure_modes (
   CONSTRAINT plan_action_failure_modes_pkey PRIMARY KEY (id),
   CONSTRAINT plan_action_failure_modes_famille_id_fkey FOREIGN KEY (famille_id) REFERENCES public.plan_action_problem_families(id)
 );
+CREATE TABLE public.plan_machines (
+  plan_id uuid NOT NULL,
+  machine_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT plan_machines_pkey PRIMARY KEY (plan_id, machine_id),
+  CONSTRAINT plan_machines_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.plans_maintenance(id) ON DELETE CASCADE,
+  CONSTRAINT plan_machines_machine_id_fkey FOREIGN KEY (machine_id) REFERENCES public.machines(id) ON DELETE CASCADE
+);
+CREATE TABLE public.plan_maintenance_aliases (
+  legacy_plan_id uuid NOT NULL,
+  plan_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT plan_maintenance_aliases_pkey PRIMARY KEY (legacy_plan_id),
+  CONSTRAINT plan_maintenance_aliases_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.plans_maintenance(id) ON DELETE CASCADE
+);

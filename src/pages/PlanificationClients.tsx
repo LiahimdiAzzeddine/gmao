@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, ChevronLeft, ChevronRight, Loader2, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
+import { generateMaintenancePlanDates, toLocalDateKey } from '../utils/maintenancePlanDates';
 
 interface Client {
   id: string;
@@ -38,56 +39,6 @@ export default function PlanificationClients() {
     loadData();
   }, [selectedDate, viewMode]);
 
-  // Fonction pour calculer les prochaines exécutions d'un plan
-  const calculateNextExecutions = (
-    startDate: string,
-    typeRecurrence: string,
-    intervalle: number,
-    periodStart: Date,
-    periodEnd: Date
-  ): Date[] => {
-    const dates: Date[] = [];
-    let currentDate = new Date(startDate);
-
-    // S'assurer que currentDate est dans le futur ou aujourd'hui
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    if (currentDate < today) {
-      currentDate = new Date(today);
-    }
-
-    // Générer les dates jusqu'à la fin de la période
-    while (currentDate <= periodEnd) {
-      if (currentDate >= periodStart && currentDate <= periodEnd) {
-        dates.push(new Date(currentDate));
-      }
-
-      // Calculer la prochaine date selon la récurrence
-      switch (typeRecurrence) {
-        case 'journalière':
-          currentDate.setDate(currentDate.getDate() + intervalle);
-          break;
-        case 'hebdomadaire':
-          currentDate.setDate(currentDate.getDate() + (intervalle * 7));
-          break;
-        case 'mensuelle':
-          currentDate.setMonth(currentDate.getMonth() + intervalle);
-          break;
-        case 'annuelle':
-          currentDate.setFullYear(currentDate.getFullYear() + intervalle);
-          break;
-        default:
-          return dates;
-      }
-
-      // Sécurité : limiter à 1000 itérations
-      if (dates.length > 1000) break;
-    }
-
-    return dates;
-  };
-
   const loadData = async () => {
     setLoading(true);
     try {
@@ -118,42 +69,45 @@ export default function PlanificationClients() {
           date_programmee,
           statut,
           type,
-          machine_id
+          machine_id,
+          plan_id
         `)
         .gte('date_programmee', startDate.toISOString())
         .lte('date_programmee', endDate.toISOString());
 
       if (otError) throw otError;
 
-      // Charger les machines séparément
-      const machineIds = [...new Set(otDataRaw?.map((ot: any) => ot.machine_id).filter(Boolean))];
-
+      // Charger toutes les machines : les plans futurs doivent apparaître même si
+      // aucune occurrence d'OT n'existe encore dans la période affichée.
       const { data: machinesData, error: machinesError } = await supabase
         .from('machines')
         .select(`
           id,
           nom,
           client_id
-        `)
-        .in('id', machineIds);
+        `);
 
       if (machinesError) throw machinesError;
 
       // Charger les interventions pour ces OT
       const otIds = otDataRaw?.map((ot: any) => ot.id) || [];
       
-      const { data: interventionsData, error: interventionsError } = await supabase
-        .from('interventions')
-        .select(`
-          id,
-          ordre_travail_id,
-          valide,
-          date_debut,
-          date_fin
-        `)
-        .in('ordre_travail_id', otIds);
+      let interventionsData: any[] = [];
+      if (otIds.length > 0) {
+        const { data, error: interventionsError } = await supabase
+          .from('interventions')
+          .select(`
+            id,
+            ordre_travail_id,
+            valide,
+            date_debut,
+            date_fin
+          `)
+          .in('ordre_travail_id', otIds);
 
-      if (interventionsError) throw interventionsError;
+        if (interventionsError) throw interventionsError;
+        interventionsData = data || [];
+      }
 
       // Créer un map des machines
       const machinesMap = new Map();
@@ -178,11 +132,15 @@ export default function PlanificationClients() {
         .from('plans_maintenance')
         .select(`
           id,
-          machine_id,
+          plan_machines(machine_id),
           type,
           type_recurrence,
           intervalle,
           date_debut,
+          date_fin,
+          forcer_jour_semaine,
+          jour_semaine,
+          semaine_du_mois,
           statut
         `)
         .eq('statut', 'actif');
@@ -191,30 +149,32 @@ export default function PlanificationClients() {
 
       // Générer les OT futurs basés sur les plans actifs
       const otFuturs: any[] = [];
+      const otExistants = new Set(
+        (otDataRaw || [])
+          .filter((ot: any) => ot.plan_id && ot.machine_id && ot.date_programmee)
+          .map((ot: any) => `${ot.plan_id}:${ot.machine_id}:${toLocalDateKey(ot.date_programmee)}`)
+      );
       
       plansActifs?.forEach((plan: any) => {
-        const machine = machinesMap.get(plan.machine_id);
-        if (!machine) return;
-
         // Calculer les prochaines dates d'exécution dans la période
-        const prochaineDates = calculateNextExecutions(
-          plan.date_debut,
-          plan.type_recurrence,
-          plan.intervalle || 1,
-          startDate,
-          endDate
-        );
+        const prochaineDates = generateMaintenancePlanDates(plan, startDate, endDate);
 
-        prochaineDates.forEach((date: Date) => {
-          otFuturs.push({
-            id: `future-${plan.id}-${date.getTime()}`,
+        (plan.plan_machines || []).forEach((link: any) => {
+          const machine = machinesMap.get(link.machine_id);
+          if (!machine) return;
+          prochaineDates.forEach((date: Date) => {
+            const occurrenceKey = `${plan.id}:${link.machine_id}:${toLocalDateKey(date)}`;
+            if (otExistants.has(occurrenceKey)) return;
+            otFuturs.push({
+            id: `future-${plan.id}-${link.machine_id}-${date.getTime()}`,
             numot: `À créer`,
             date_programmee: date.toISOString(),
             statut: 'prévu',
             type: plan.type,
-            machine_id: plan.machine_id,
+            machine_id: link.machine_id,
             machine: machine,
             isFuture: true
+            });
           });
         });
       });

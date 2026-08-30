@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Calendar, Clock, User, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { generateMaintenancePlanDates, toLocalDateKey } from '../../utils/maintenancePlanDates';
 
 // Types
 interface Plan {
@@ -19,6 +20,7 @@ interface Plan {
   type: 'préventive' | 'corrective';
   statut: string;
   machine?: { nom: string };
+  plan_machines?: Array<{ machine_id: string; machine?: { nom: string } }>;
   lot?: { nom: string };
   gamme?: { nom: string };
 }
@@ -30,74 +32,12 @@ interface Technicien {
 
 // Fonction pour calculer toutes les dates selon le plan
 function generateOTDates(plan: Plan): Date[] {
-  const dates: Date[] = [];
-  const startDate = new Date(plan.date_debut);
-  const endDate = plan.date_fin ? new Date(plan.date_fin) : new Date(startDate.getFullYear() + 1, startDate.getMonth(), startDate.getDate());
-  
-  let currentDate = new Date(startDate);
-  
-  while (currentDate <= endDate) {
-    let nextDate = new Date(currentDate);
-    
-    switch(plan.type_recurrence) {
-      case 'journalière':
-        nextDate.setDate(nextDate.getDate() + (plan.intervalle || 1));
-        break;
-      case 'hebdomadaire':
-        nextDate.setDate(nextDate.getDate() + 7 * (plan.intervalle || 1));
-        break;
-      case 'mensuelle':
-        if (plan.semaine_du_mois) {
-          // Si une semaine du mois est spécifiée, calculer la date dans cette semaine
-          nextDate.setMonth(nextDate.getMonth() + (plan.intervalle || 1));
-          const firstDay = new Date(nextDate.getFullYear(), nextDate.getMonth(), 1);
-          const targetDate = new Date(firstDay);
-          targetDate.setDate(1 + (plan.semaine_du_mois - 1) * 7);
-          if (targetDate.getMonth() === nextDate.getMonth()) {
-            nextDate = targetDate;
-          }
-        } else {
-          // Sinon, simplement ajouter les mois en préservant le jour du mois
-          const dayOfMonth = nextDate.getDate();
-          const currentMonth = nextDate.getMonth();
-          const currentYear = nextDate.getFullYear();
-          const intervalle = plan.intervalle || 1;
-          
-          // Calculer le nouveau mois et année
-          const newMonth = currentMonth + intervalle;
-          const newYear = currentYear + Math.floor(newMonth / 12);
-          const finalMonth = newMonth % 12;
-          
-          // Créer une nouvelle date avec le même jour
-          nextDate = new Date(newYear, finalMonth, dayOfMonth);
-          
-          // Gérer le cas où le jour n'existe pas dans le nouveau mois (ex: 31 février)
-          // JavaScript ajuste automatiquement (31 fév devient 3 mars), donc on vérifie le mois
-          if (nextDate.getMonth() !== finalMonth) {
-            // Le jour était invalide, revenir au dernier jour du mois cible
-            nextDate = new Date(newYear, finalMonth + 1, 0);
-          }
-        }
-        break;
-      case 'annuelle':
-        nextDate.setFullYear(nextDate.getFullYear() + (plan.intervalle || 1));
-        break;
-    }
-    
-    // Forcer le jour de semaine si demandé
-    if (plan.forcer_jour_semaine && plan.jour_semaine !== null && plan.jour_semaine !== undefined) {
-      const dayDiff = (plan.jour_semaine - nextDate.getDay() + 7) % 7;
-      nextDate.setDate(nextDate.getDate() + dayDiff);
-    }
-    
-    if (nextDate <= endDate) {
-      dates.push(new Date(nextDate));
-    }
-    
-    currentDate = nextDate;
-  }
-  
-  return dates;
+  const startDate = new Date(`${plan.date_debut}T00:00:00`);
+  const endDate = plan.date_fin
+    ? new Date(`${plan.date_fin}T23:59:59`)
+    : new Date(startDate.getFullYear() + 1, startDate.getMonth(), startDate.getDate());
+
+  return generateMaintenancePlanDates(plan, startDate, endDate);
 }
 
 // Composant Calendrier simplifié
@@ -125,7 +65,7 @@ function SimpleCalendar({
     days.push(i);
   }
   
-  const dateToString = (date: Date) => date.toISOString().split('T')[0];
+  const dateToString = (date: Date) => toLocalDateKey(date);
   
   const isAvailableDate = (day: number) => {
     const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
@@ -216,6 +156,7 @@ export default function CreateOTFromPlan() {
   const [techniciens, setTechniciens] = useState<Technicien[]>([]);
   const [availableDates, setAvailableDates] = useState<Date[]>([]);
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
+  const [existingOTKeys, setExistingOTKeys] = useState<Set<string>>(new Set());
   const [technicienId, setTechnicienId] = useState<string>('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -230,11 +171,23 @@ export default function CreateOTFromPlan() {
       setError(null);
       
       try {
+        let resolvedPlanId = planId;
+        const { data: alias } = await supabase
+          .from('plan_maintenance_aliases')
+          .select('plan_id')
+          .eq('legacy_plan_id', planId)
+          .maybeSingle();
+
+        if (alias?.plan_id) {
+          resolvedPlanId = alias.plan_id;
+          navigate(`/admin/plans-maintenance/${resolvedPlanId}/create-ot`, { replace: true });
+        }
+
         // Charger le plan avec ses relations
         const { data: planData, error: planError } = await supabase
           .from('plans_maintenance')
-          .select('*, machine:machines(nom), lot:lots(nom), gamme:gammes_maintenance(nom)')
-          .eq('id', planId)
+          .select('*, machine:machines!plans_maintenance_machine_id_fkey(nom), plan_machines(machine_id, machine:machines(nom)), lot:lots(nom), gamme:gammes_maintenance(nom)')
+          .eq('id', resolvedPlanId)
           .single();
         
         if (planError) throw planError;
@@ -255,6 +208,18 @@ export default function CreateOTFromPlan() {
         // Générer les dates disponibles
         const dates = generateOTDates(planData);
         setAvailableDates(dates);
+
+        const { data: existingOT, error: existingOTError } = await supabase
+          .from('ordres_travail')
+          .select('machine_id, date_programmee')
+          .eq('plan_id', planData.id);
+
+        if (existingOTError) throw existingOTError;
+        setExistingOTKeys(new Set(
+          (existingOT || []).map((ot: any) =>
+            `${ot.machine_id}:${toLocalDateKey(ot.date_programmee)}`
+          )
+        ));
         
       } catch (err: any) {
         setError(err.message || 'Erreur lors du chargement des données');
@@ -269,7 +234,7 @@ export default function CreateOTFromPlan() {
     }
   }, [planId]);
   
-  const dateToString = (date: Date) => date.toISOString().split('T')[0];
+  const dateToString = (date: Date) => toLocalDateKey(date);
   
   const handleDateToggle = (date: Date) => {
     const dateStr = dateToString(date);
@@ -304,6 +269,29 @@ export default function CreateOTFromPlan() {
   
   const handleCreateOTs = async () => {
     if (!technicienId || selectedDates.size === 0 || !plan) return;
+
+    const machineIds = Array.from(new Set(
+      plan.plan_machines?.map(link => link.machine_id)
+        || (plan.machine_id ? [plan.machine_id] : [])
+    ));
+    if (machineIds.length === 0) {
+      setError('Aucune machine associée à ce plan');
+      return;
+    }
+
+    const pendingPairs = Array.from(selectedDates).flatMap(dateStr =>
+      machineIds
+        .filter(machineId => !existingOTKeys.has(`${machineId}:${dateStr}`))
+        .map(machine_id => ({ machine_id, dateStr }))
+    );
+    const totalToCreate = pendingPairs.length;
+    if (totalToCreate === 0) {
+      setError('Tous les OT correspondant à cette sélection existent déjà');
+      return;
+    }
+    if (!window.confirm(
+      `Créer ${totalToCreate} ordre(s) de travail pour ${machineIds.length} machine(s) et ${selectedDates.size} date(s) ?`
+    )) return;
     
     setCreating(true);
     setError(null);
@@ -311,12 +299,14 @@ export default function CreateOTFromPlan() {
     
     try {
       // Préparer les données pour insertion
-      const otData = Array.from(selectedDates).map(dateStr => ({
-        plan_id: plan.id,
-        technicien_id: technicienId,
-        date_programmee: new Date(dateStr).toISOString(),
-        statut: 'prévu'
-      }));
+      const otData = pendingPairs.map(({ machine_id, dateStr }) => ({
+          plan_id: plan.id,
+          machine_id,
+          technicien_id: technicienId,
+          date_programmee: new Date(dateStr).toISOString(),
+          statut: 'prévu',
+          type: 'préventif',
+        }));
       
       // Insérer dans Supabase
       const { error: insertError } = await supabase
@@ -325,7 +315,12 @@ export default function CreateOTFromPlan() {
       
       if (insertError) throw insertError;
       
-      setSuccess(`${selectedDates.size} ordre(s) de travail créé(s) avec succès !`);
+      setSuccess(`${otData.length} ordre(s) de travail créé(s) avec succès !`);
+      setExistingOTKeys(previous => {
+        const next = new Set(previous);
+        pendingPairs.forEach(({ machine_id, dateStr }) => next.add(`${machine_id}:${dateStr}`));
+        return next;
+      });
       setSelectedDates(new Set());
       setTechnicienId('');
       
@@ -358,6 +353,21 @@ export default function CreateOTFromPlan() {
       </div>
     );
   }
+
+  const associatedMachineCount = new Set(
+    plan.plan_machines?.map(link => link.machine_id)
+      || (plan.machine_id ? [plan.machine_id] : [])
+  ).size;
+  const associatedMachineIds = Array.from(new Set(
+    plan.plan_machines?.map(link => link.machine_id)
+      || (plan.machine_id ? [plan.machine_id] : [])
+  ));
+  const totalOTToCreate = Array.from(selectedDates).reduce(
+    (total, dateStr) => total + associatedMachineIds.filter(
+      machineId => !existingOTKeys.has(`${machineId}:${dateStr}`)
+    ).length,
+    0
+  );
   
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -373,10 +383,16 @@ export default function CreateOTFromPlan() {
                 <p className="flex items-center gap-2">
                   <span className="font-medium">Gamme:</span> {plan.gamme?.nom}
                 </p>
-                {plan.machine && (
+                {plan.machine && (!plan.plan_machines || plan.plan_machines.length === 0) && (
                   <p className="flex items-center gap-2">
                     <span className="font-medium">Machine:</span> {plan.machine.nom}
                   </p>
+                )}
+                {plan.plan_machines && plan.plan_machines.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <span className="font-medium">Machines :</span>
+                    <span>{plan.plan_machines.map(link => link.machine?.nom).filter(Boolean).join(', ')}</span>
+                  </div>
                 )}
                 {plan.lot && (
                   <p className="flex items-center gap-2">
@@ -490,6 +506,12 @@ export default function CreateOTFromPlan() {
                      selectedDates.size === 1 ? 'date sélectionnée' : 
                      'dates sélectionnées'}
                   </p>
+                  {selectedDates.size > 0 && associatedMachineCount > 0 && (
+                    <p className="mt-2 text-sm font-medium text-slate-700">
+                      {associatedMachineCount} machine{associatedMachineCount > 1 ? 's' : ''} × {selectedDates.size} date{selectedDates.size > 1 ? 's' : ''}
+                      {' = '}{totalOTToCreate} nouvel{totalOTToCreate > 1 ? 's' : ''} OT
+                    </p>
+                  )}
                 </div>
               </div>
               
@@ -516,7 +538,7 @@ export default function CreateOTFromPlan() {
               {/* Bouton de création */}
               <button
                 onClick={handleCreateOTs}
-                disabled={selectedDates.size === 0 || !technicienId || creating}
+                disabled={selectedDates.size === 0 || totalOTToCreate === 0 || !technicienId || creating}
                 className="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
                 {creating ? (
@@ -527,7 +549,7 @@ export default function CreateOTFromPlan() {
                 ) : (
                   <>
                     <CheckCircle className="w-5 h-5" />
-                    Créer {selectedDates.size > 0 ? `${selectedDates.size} ` : ''}OT
+                    Créer {totalOTToCreate > 0 ? `${totalOTToCreate} ` : ''}OT
                   </>
                 )}
               </button>
@@ -541,6 +563,11 @@ export default function CreateOTFromPlan() {
               {!technicienId && selectedDates.size > 0 && (
                 <p className="text-xs text-gray-500 mt-2 text-center">
                   Choisissez un technicien
+                </p>
+              )}
+              {selectedDates.size > 0 && totalOTToCreate === 0 && (
+                <p className="mt-2 text-center text-xs text-amber-600">
+                  Tous les OT de cette sélection existent déjà
                 </p>
               )}
             </div>
