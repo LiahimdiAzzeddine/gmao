@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import CorrectiveInterventionsReport from './reporting/CorrectiveInterventionsReport';
+import ClientRequestsByLotReport from './reporting/ClientRequestsByLotReport';
 
 interface ReportingStats {
   totalInterventions: number;
@@ -226,6 +227,7 @@ export default function ReportingStats() {
         </div>
 
         <CorrectiveInterventionsReport />
+        <ClientRequestsByLotReport />
 
         {/* Rapports et Analyses */}
         <div className="mb-6">
