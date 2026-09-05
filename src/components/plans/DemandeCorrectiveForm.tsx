@@ -4,6 +4,7 @@ import { supabase, Client, Machine, Profile } from '../../lib/supabase';
 import { Calendar, Wrench, AlertCircle, Loader2, PenTool } from 'lucide-react';
 import { toast } from 'react-toastify';
 import Select from 'react-select';
+import { FailureModePicker } from '../Ui/FailureModePicker';
 
 interface FormData {
   client_id: string;
@@ -27,6 +28,7 @@ export default function DemandeCorrectiveForm() {
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(isEditMode);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFailureModeIds, setSelectedFailureModeIds] = useState<string[]>([]);
 
   const [formData, setFormData] = useState<FormData>({
     client_id: '',
@@ -103,6 +105,7 @@ export default function DemandeCorrectiveForm() {
       if (error) throw error;
 
       if (data) {
+        setSelectedFailureModeIds(data.failure_mode_id ? [data.failure_mode_id] : []);
         setFormData({
           client_id: data.machine?.client_id || '',
           machine_id: data.machine_id,
@@ -145,7 +148,15 @@ export default function DemandeCorrectiveForm() {
         observations: formData.observations || null,
         cause: formData.cause || null,
         statut: formData.statut,
-        type: 'correctif'
+        type: 'correctif',
+        failure_mode_id: selectedFailureModeIds[0] || null,
+        problem_family_id: null,
+        problem_lot_id: null,
+        mode_defaillance: null,
+        famille_probleme: null,
+        lot_defaillance: null,
+        classification_source: selectedFailureModeIds.length ? 'diagnostic' : null,
+        classification_confirmed: selectedFailureModeIds.length > 0,
       };
 
       if (isEditMode && id) {
@@ -289,11 +300,32 @@ export default function DemandeCorrectiveForm() {
               </div>
             </div>
 
-            {/* SECTION 2: PLANIFICATION */}
+            {/* SECTION 2: CLASSIFICATION */}
             <div className="border-t border-slate-200 pt-8 space-y-6">
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 uppercase tracking-wide">
                 <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
                   <span className="text-orange-600 font-bold">2</span>
+                </div>
+                Classification de la défaillance
+              </div>
+
+              <div className="ml-10 space-y-4">
+                <div className="rounded-xl border border-orange-100 bg-orange-50/70 p-3 text-sm text-slate-700">
+                  Cette classification est facultative à la création. Elle pourra être confirmée ou corrigée après le diagnostic du technicien.
+                </div>
+                <FailureModePicker
+                  value={selectedFailureModeIds}
+                  onChange={setSelectedFailureModeIds}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            {/* SECTION 3: PLANIFICATION */}
+            <div className="border-t border-slate-200 pt-8 space-y-6">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 uppercase tracking-wide">
+                <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <span className="text-orange-600 font-bold">3</span>
                 </div>
                 Planification de l'intervention
               </div>
@@ -337,11 +369,11 @@ export default function DemandeCorrectiveForm() {
               </div>
             </div>
 
-            {/* SECTION 3: DÉTAILS DE L'INTERVENTION */}
+            {/* SECTION 4: DÉTAILS DE L'INTERVENTION */}
             <div className="border-t border-slate-200 pt-8 space-y-6">
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 uppercase tracking-wide">
                 <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <span className="text-orange-600 font-bold">3</span>
+                  <span className="text-orange-600 font-bold">4</span>
                 </div>
                 Détails de l'intervention
               </div>

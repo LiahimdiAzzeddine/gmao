@@ -8,6 +8,7 @@ import ReplanificationModal from './ReplanificationModal';
 import DualActionModal from './DualActionModal';
 import CorrectifModal from './CorrectifModal';
 import type { PlanActionFormData } from './PlanActionValidationModal';
+import { createInterventionFollowup } from '../services/interventionFollowup';
 import { getOtStatusLabel } from '../utils/otStatus';
 import { getInterventionValidationConfig, getInterventionValidationLabel } from '../utils/interventionStatus';
 
@@ -511,6 +512,7 @@ const InterventionsTable: React.FC = () => {
     };
 
     const buildPlanActionPayload = (data: PlanActionFormData) => ({
+        failure_mode_id: data.failure_mode_id || null,
         lot_defaillance: data.lot_defaillance.trim(),
         famille_probleme: data.famille_probleme.trim(),
         mode_defaillance: data.mode_defaillance.trim(),
@@ -756,10 +758,23 @@ const InterventionsTable: React.FC = () => {
         });
         const { data: { user } } = await supabase.auth.getUser();
 
+        const { error: otPlanActionError } = await supabase
+            .from('ordres_travail')
+            .update({
+                ...buildPlanActionPayload(planActionData),
+                classification_source: 'diagnostic',
+                classification_confirmed: true,
+            })
+            .eq('id', intervention.ordre_travail_id);
+
+        if (otPlanActionError) throw otPlanActionError;
+
         const { error } = await supabase
             .from('interventions')
             .update({
-                ...buildPlanActionPayload(planActionData),
+                action_cloturee: planActionData.action_cloturee,
+                date_cloture_action: planActionData.date_cloture_action || null,
+                commentaire: planActionData.observation_resultat.trim() || intervention.commentaire,
                 valide: true,
                 valide_par: user?.id,
                 valide_le: new Date().toISOString()
@@ -860,6 +875,29 @@ const InterventionsTable: React.FC = () => {
     const creerOTCorrectifSeul = async (dateProgrammee: string, priorite: string, observations: string, planAction: PlanActionFormData) => {
         if (!selectedInterventionForOT) return;
 
+        {
+            const intervention = selectedInterventionForOT;
+            const result = await createInterventionFollowup({
+                interventionId: intervention.id,
+                parentOtNumber: (intervention.ordre_travail as any)?.numot,
+                interventionDate: intervention.date_debut,
+                steps: intervention.etapes_gamme_checkees || [],
+                createReplanification: false,
+                replanificationDate: new Date(),
+                replanificationReason: '',
+                createCorrective: true,
+                correctiveDate: dateProgrammee,
+                correctivePriority: priorite,
+                correctiveObservations: observations,
+                planAction,
+            });
+            await fetchInterventions();
+            setShowCorrectifModal(false);
+            setSelectedInterventionForOT(null);
+            alert(`✅ OT correctif #${result.corrective_numot ?? ''} créé avec succès.`);
+            return;
+        }
+
         try {
             const intervention = selectedInterventionForOT;
             const etapesNonConformes = intervention.etapes_gamme_checkees?.filter((etape: any) => 
@@ -927,6 +965,8 @@ const InterventionsTable: React.FC = () => {
                     ot_parent_id: otParent?.id,
                     intervention_source_id: intervention.id,
                     ...buildPlanActionPayload(planAction),
+                    classification_source: 'diagnostic',
+                    classification_confirmed: true,
                     // Stocker les étapes non-conformes pour affichage au technicien
                     etapes_non_conformes: etapesNonConformes
                 })
@@ -955,9 +995,45 @@ const InterventionsTable: React.FC = () => {
         dateProgrammeeCorrectif: string,
         prioriteCorrectif: string,
         observationsCorrectif: string,
-        planAction?: PlanActionFormData
+        planAction: PlanActionFormData | undefined,
+        options: { creerReplanification: boolean; creerCorrectif: boolean }
     ) => {
-        if (!selectedInterventionForReplan || !selectedInterventionForOT || !planAction) return;
+        if (!selectedInterventionForReplan || !selectedInterventionForOT) return;
+        if (options.creerCorrectif && !planAction) return;
+
+        try {
+            const intervention = selectedInterventionForReplan;
+            const result = await createInterventionFollowup({
+                interventionId: intervention.id,
+                parentOtNumber: (intervention.ordre_travail as any)?.numot,
+                interventionDate: intervention.date_debut,
+                steps: intervention.etapes_gamme_checkees || [],
+                createReplanification: options.creerReplanification,
+                replanificationDate: dateReplanification,
+                replanificationReason: raisonReport,
+                createCorrective: options.creerCorrectif,
+                correctiveDate: dateProgrammeeCorrectif,
+                correctivePriority: prioriteCorrectif,
+                correctiveObservations: observationsCorrectif,
+                planAction,
+            });
+
+            await fetchInterventions();
+            setShowDualActionModal(false);
+            setSelectedInterventionForReplan(null);
+            setSelectedInterventionForOT(null);
+
+            const created = [
+                result.replan_numot ? `OT de replanification #${result.replan_numot}` : '',
+                result.corrective_numot ? `OT correctif #${result.corrective_numot}` : '',
+            ].filter(Boolean).join('\n');
+            alert(`✅ Création réussie\n${created}`);
+            return;
+        } catch (err) {
+            console.error('Erreur lors de la création transactionnelle des OT:', err);
+            alert(err instanceof Error ? err.message : '❌ Erreur lors de la création des OT');
+            throw err;
+        }
 
         try {
             const intervention = selectedInterventionForReplan;
@@ -1050,6 +1126,8 @@ const InterventionsTable: React.FC = () => {
                     priorite: prioriteCorrectif,
                     date_programmee: dateProgrammeeCorrectif,
                     ...buildPlanActionPayload(planAction),
+                    classification_source: 'diagnostic',
+                    classification_confirmed: true,
                     observations: descriptionNonConformites,
                     cause: 'Non-conformités détectées lors de la maintenance préventive',
                     machine_id: intervention.machine_id,
@@ -1084,6 +1162,28 @@ const InterventionsTable: React.FC = () => {
     // Fonction pour créer un OT de replanification
     const creerOTReplanification = async (dateReplanification: Date, raisonReport: string) => {
         if (!selectedInterventionForReplan) return;
+
+        {
+            const intervention = selectedInterventionForReplan;
+            const result = await createInterventionFollowup({
+                interventionId: intervention.id,
+                parentOtNumber: (intervention.ordre_travail as any)?.numot,
+                interventionDate: intervention.date_debut,
+                steps: intervention.etapes_gamme_checkees || [],
+                createReplanification: true,
+                replanificationDate: dateReplanification,
+                replanificationReason: raisonReport,
+                createCorrective: false,
+                correctiveDate: new Date().toISOString(),
+                correctivePriority: 'moyenne',
+                correctiveObservations: '',
+            });
+            await fetchInterventions();
+            setShowReplanificationModal(false);
+            setSelectedInterventionForReplan(null);
+            alert(`✅ OT de replanification #${result.replan_numot ?? ''} créé avec succès.`);
+            return;
+        }
 
         try {
             const intervention = selectedInterventionForReplan;

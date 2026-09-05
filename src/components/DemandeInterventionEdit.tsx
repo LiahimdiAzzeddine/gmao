@@ -4,6 +4,7 @@ import { supabase, DemandeData, ExistingDemande, PlanningData, FrequencyType } f
 import {  Wrench, CheckCircle2, AlertTriangle, Trash2, Calendar, Loader2 } from 'lucide-react';
 import { RRule, Weekday } from 'rrule';
 import { MaintenanceCalendar } from './Ui/MaintenanceCalendar';
+import { FailureModePicker } from './Ui/FailureModePicker';
 
 export default function DemandeInterventionEdit() {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export default function DemandeInterventionEdit() {
   const [checkingPreventive, setCheckingPreventive] = useState(false);
   const [nextOccurrences, setNextOccurrences] = useState<Date[]>([]);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [selectedFailureModeIds, setSelectedFailureModeIds] = useState<string[]>([]);
   const today = new Date().toISOString().split('T')[0];
 
 
@@ -47,6 +49,7 @@ export default function DemandeInterventionEdit() {
       });
 
       setSelectedClientId(data.client_id || '');
+      setSelectedFailureModeIds(data.failure_mode_id ? [data.failure_mode_id] : []);
 
       if (data.planning && data.planning.length > 0) {
         const plan = data.planning[0];
@@ -220,6 +223,9 @@ function generateRRule(): string {
 
       if (demandeData.type_intervention === 'corrective') {
         updateObj.urgence = demandeData.urgence;
+        updateObj.failure_mode_id = selectedFailureModeIds[0] || null;
+      } else {
+        updateObj.failure_mode_id = null;
       }
 
       const { error: demandeError } = await supabase
@@ -340,19 +346,23 @@ function generateRRule(): string {
 
           {/* Urgence (corrective only) */}
           {demandeData.type_intervention === 'corrective' && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Urgence
-              </label>
-              <select
-                value={demandeData.urgence}
-                onChange={(e) => setDemandeData({ ...demandeData, urgence: e.target.value as any })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              >
-                <option value="faible">Faible</option>
-                <option value="moyenne">Moyenne</option>
-                <option value="élevée">Élevée</option>
-              </select>
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Urgence</label>
+                <select
+                  value={demandeData.urgence}
+                  onChange={(e) => setDemandeData({ ...demandeData, urgence: e.target.value as any })}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                >
+                  <option value="faible">Faible</option>
+                  <option value="moyenne">Moyenne</option>
+                  <option value="élevée">Élevée</option>
+                </select>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <h3 className="mb-3 text-sm font-semibold text-slate-800">Classification de la défaillance</h3>
+                <FailureModePicker value={selectedFailureModeIds} onChange={setSelectedFailureModeIds} />
+              </div>
             </div>
           )}
 

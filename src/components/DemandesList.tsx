@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, Machine, DemandeIntervention } from '../lib/supabase';
-import { Edit, Trash2, Eye, FileSpreadsheet, FileText, Filter, Search, X, BarChart3, CheckCircle2, Loader2 } from 'lucide-react';
+import { Edit, Trash2, Eye, FileSpreadsheet, FileText, Filter, Search, X, BarChart3, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
+import { FailureModePicker } from './Ui/FailureModePicker';
 
 export default function DemandesList() {
   const navigate = useNavigate();
@@ -10,6 +11,8 @@ export default function DemandesList() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [convertingId, setConvertingId] = useState<string | null>(null);
+  const [conversionRequest, setConversionRequest] = useState<DemandeIntervention | null>(null);
+  const [conversionFailureModeIds, setConversionFailureModeIds] = useState<string[]>([]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
@@ -114,53 +117,38 @@ async function loadDemandes() {
     }
   }
 
-  async function handleAcceptAndConvert(demande: DemandeIntervention) {
+  function openConversionModal(demande: DemandeIntervention) {
     if (demande.statut !== 'en attente' || convertingId) return;
-    if (!confirm('Accepter cette demande et créer un OT correctif ?')) return;
+    setConversionRequest(demande);
+    setConversionFailureModeIds(demande.failure_mode_id ? [demande.failure_mode_id] : []);
+  }
 
-    setConvertingId(demande.id);
-    let createdOtId: string | null = null;
+  function closeConversionModal() {
+    if (convertingId) return;
+    setConversionRequest(null);
+    setConversionFailureModeIds([]);
+  }
+
+  async function handleAcceptAndConvert() {
+    if (!conversionRequest || conversionRequest.statut !== 'en attente' || convertingId) return;
+
+    setConvertingId(conversionRequest.id);
 
     try {
-      const { data: latest, error: latestError } = await supabase
-        .from('demande_intervention')
-        .select('statut')
-        .eq('id', demande.id)
-        .single();
-      if (latestError) throw latestError;
-      if (latest.statut !== 'en attente') throw new Error('Cette demande a déjà été traitée.');
+      const { data, error } = await supabase.rpc('convert_request_to_work_order', {
+        p_demande_id: conversionRequest.id,
+        p_failure_mode_id: conversionFailureModeIds[0] || null,
+      });
+      if (error) throw error;
 
-      const urgency = (demande.urgence || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-      const priorite = urgency === 'elevee' ? 'haute' : urgency === 'faible' ? 'faible' : 'moyenne';
-      const { data: ordre, error: otError } = await supabase
-        .from('ordres_travail')
-        .insert({
-          machine_id: demande.machine_id,
-          type: 'correctif',
-          date_programmee: new Date().toISOString(),
-          statut: 'prévu',
-          priorite,
-          type_intervention: 'réparation',
-          observations: `${demande.label ? `[${demande.label}] ` : ''}${demande.description || ''}\n\nCréé depuis la demande client ${demande.id}`,
-        })
-        .select('id, numot')
-        .single();
-      if (otError) throw otError;
-      createdOtId = ordre.id;
-
-      const { data: updatedRequest, error: updateError } = await supabase
-        .from('demande_intervention')
-        .update({ statut: 'validée' })
-        .eq('id', demande.id)
-        .eq('statut', 'en attente')
-        .select('id')
-        .single();
-      if (updateError || !updatedRequest) throw updateError || new Error('La demande a déjà été traitée.');
-
-      setDemandes((current) => current.map((item) => item.id === demande.id ? { ...item, statut: 'validée' } : item));
-      alert(`Demande acceptée. OT correctif ${ordre.numot ? `#${ordre.numot}` : ''} créé avec succès.`);
+      const result = data as { id?: string; numot?: number | string } | null;
+      setDemandes((current) => current.map((item) => item.id === conversionRequest.id
+        ? { ...item, statut: 'validée', failure_mode_id: conversionFailureModeIds[0] || null }
+        : item));
+      alert(`Demande acceptée. OT correctif ${result?.numot ? `#${result.numot}` : ''} créé avec succès.`);
+      setConversionRequest(null);
+      setConversionFailureModeIds([]);
     } catch (error) {
-      if (createdOtId) await supabase.from('ordres_travail').delete().eq('id', createdOtId);
       console.error('Erreur conversion demande en OT:', error);
       alert(error instanceof Error ? error.message : 'Impossible de convertir la demande en OT.');
     } finally {
@@ -433,7 +421,7 @@ async function loadDemandes() {
                           <div className="flex items-center gap-2">
                             {d.statut === 'en attente' && d.type_intervention === 'corrective' && (
                               <button
-                                onClick={() => handleAcceptAndConvert(d)}
+                                onClick={() => openConversionModal(d)}
                                 disabled={convertingId !== null}
                                 title="Accepter et créer un OT correctif"
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs font-bold text-emerald-700 transition-all hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
@@ -485,6 +473,53 @@ async function loadDemandes() {
           </div>
         )}
       </div>
+
+      {conversionRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="convert-request-title">
+          <div className="flex max-h-[95vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-900 px-5 py-4 text-white">
+              <div className="flex items-start gap-3">
+                <div className="rounded-xl bg-white/10 p-2"><CheckCircle2 className="h-5 w-5" /></div>
+                <div>
+                  <h2 id="convert-request-title" className="text-lg font-bold">Créer l’OT correctif</h2>
+                  <p className="mt-1 text-sm text-slate-300">
+                    {conversionRequest.label || 'Demande client'} · {machines[conversionRequest.machine_id]?.nom || 'Machine'}
+                  </p>
+                </div>
+              </div>
+              <button type="button" onClick={closeConversionModal} disabled={Boolean(convertingId)} className="rounded-lg p-2 text-slate-300 transition hover:bg-white/10 hover:text-white disabled:opacity-50" aria-label="Fermer">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-5 overflow-y-auto p-5">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Description de la demande</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">{conversionRequest.description || 'Aucune description'}</p>
+              </div>
+
+              <div>
+                <div className="mb-3 flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#ee6b1a]" />
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Classification initiale <span className="font-normal text-slate-400">(optionnelle)</span></h3>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">Elle sera enregistrée comme provisoire et pourra être confirmée ou corrigée après le diagnostic du technicien.</p>
+                  </div>
+                </div>
+                <FailureModePicker value={conversionFailureModeIds} onChange={setConversionFailureModeIds} disabled={Boolean(convertingId)} />
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end">
+              <button type="button" onClick={closeConversionModal} disabled={Boolean(convertingId)} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50">Annuler</button>
+              <button type="button" onClick={handleAcceptAndConvert} disabled={Boolean(convertingId)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#ee6b1a] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#d95f10] disabled:cursor-not-allowed disabled:opacity-60">
+                {convertingId ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                {convertingId ? 'Création en cours…' : 'Accepter et créer l’OT'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import ReplanificationModal from '../components/ReplanificationModal';
 import CorrectifModal from '../components/CorrectifModal';
 import DualActionModal from '../components/DualActionModal';
 import PlanActionValidationModal, { PlanActionFormData } from '../components/PlanActionValidationModal';
+import { createInterventionFollowup } from '../services/interventionFollowup';
 
 interface Intervention {
   id: string;
@@ -234,7 +235,10 @@ const InterventionDetails: React.FC = () => {
       Boolean(interventionData?.ordre_travail?.ot_parent_id || interventionData?.ordre_travail?.intervention_source_id);
   };
 
-  const buildPlanActionPayload = (data: PlanActionFormData) => ({
+  // La classification et l'analyse de risque appartiennent a l'OT correctif.
+  // Les champs de cloture restent stockes sur l'intervention.
+  const buildCorrectiveOTPlanActionPayload = (data: PlanActionFormData) => ({
+    failure_mode_id: data.failure_mode_id || null,
     lot_defaillance: data.lot_defaillance.trim(),
     famille_probleme: data.famille_probleme.trim(),
     mode_defaillance: data.mode_defaillance.trim(),
@@ -247,27 +251,8 @@ const InterventionDetails: React.FC = () => {
     detectabilite_classe: data.detectabilite_classe,
     rpn: data.gravite_classe * data.occurrence_classe * data.detectabilite_classe,
     date_expression: data.date_expression || null,
-    action_cloturee: data.action_cloturee,
-    date_cloture_action: data.date_cloture_action || null,
-    observation_resultat: data.observation_resultat.trim() || null
-  });
-
-  // Les champs de cloture ci-dessus appartiennent a l'intervention et ne sont
-  // pas presents dans ordres_travail. Ce payload doit rester identique a celui
-  // utilise par la table des interventions lors de la creation d'un OT correctif.
-  const buildCorrectiveOTPlanActionPayload = (data: PlanActionFormData) => ({
-    lot_defaillance: data.lot_defaillance.trim(),
-    famille_probleme: data.famille_probleme.trim(),
-    mode_defaillance: data.mode_defaillance.trim(),
-    action_recommandee: data.action_recommandee.trim(),
-    gravite_libelle: data.gravite_libelle.trim() || null,
-    gravite_classe: data.gravite_classe,
-    occurrence_libelle: data.occurrence_libelle.trim() || null,
-    occurrence_classe: data.occurrence_classe,
-    detectabilite_libelle: data.detectabilite_libelle.trim() || null,
-    detectabilite_classe: data.detectabilite_classe,
-    rpn: data.gravite_classe * data.occurrence_classe * data.detectabilite_classe,
-    date_expression: data.date_expression || null
+    classification_source: 'diagnostic',
+    classification_confirmed: true
   });
 
   const handleValidation = async (valide: boolean) => {
@@ -458,6 +443,25 @@ const InterventionDetails: React.FC = () => {
     planAction: PlanActionFormData
   ) => {
     if (!selectedInterventionForOT) return;
+
+    {
+      await createInterventionFollowup({
+        interventionId: selectedInterventionForOT.id,
+        parentOtNumber: (selectedInterventionForOT.ordre_travail as any)?.numot,
+        interventionDate: selectedInterventionForOT.date_debut,
+        steps: selectedInterventionForOT.etapes_gamme_checkees || [],
+        createReplanification: false,
+        replanificationDate: new Date(),
+        replanificationReason: '',
+        createCorrective: true,
+        correctiveDate: dateProgrammee,
+        correctivePriority: priorite,
+        correctiveObservations: observations,
+        planAction,
+      });
+      handleCorrectifSuccess();
+      return;
+    }
     
     try {
       const etapesNonConformes = selectedInterventionForOT.etapes_gamme_checkees?.filter((etape: any) => 
@@ -507,10 +511,19 @@ const InterventionDetails: React.FC = () => {
     const interventionData = selectedInterventionForPlanAction;
     const { data: { user } } = await supabase.auth.getUser();
 
+    const { error: planActionError } = await supabase
+      .from('ordres_travail')
+      .update(buildCorrectiveOTPlanActionPayload(planActionData))
+      .eq('id', interventionData.ordre_travail_id);
+
+    if (planActionError) throw planActionError;
+
     const { error } = await supabase
       .from('interventions')
       .update({
-        ...buildPlanActionPayload(planActionData),
+        action_cloturee: planActionData.action_cloturee,
+        date_cloture_action: planActionData.date_cloture_action || null,
+        commentaire: planActionData.observation_resultat.trim() || interventionData.commentaire,
         valide: true,
         valide_par: user?.id,
         valide_le: new Date().toISOString()
@@ -609,6 +622,24 @@ const InterventionDetails: React.FC = () => {
   // Fonctions pour gérer les modals
   const handleReplanificationConfirm = async (date: Date, raison: string) => {
     if (!selectedInterventionForReplan) return;
+
+    {
+      await createInterventionFollowup({
+        interventionId: selectedInterventionForReplan.id,
+        parentOtNumber: (selectedInterventionForReplan.ordre_travail as any)?.numot,
+        interventionDate: selectedInterventionForReplan.date_debut,
+        steps: selectedInterventionForReplan.etapes_gamme_checkees || [],
+        createReplanification: true,
+        replanificationDate: date,
+        replanificationReason: raison,
+        createCorrective: false,
+        correctiveDate: new Date().toISOString(),
+        correctivePriority: 'moyenne',
+        correctiveObservations: '',
+      });
+      handleReplanificationSuccess();
+      return;
+    }
     
     try {
       const etapesReportees = selectedInterventionForReplan.etapes_gamme_checkees?.filter((etape: any) => 
@@ -1202,13 +1233,22 @@ const InterventionDetails: React.FC = () => {
               gamme: { nom: selectedInterventionForReplan.ordre_travail.plan.gamme?.nom || '' }
             } : undefined
           }}
-          onConfirm={async (dateReplan, raison, dateCorr, priorite, obs, planAction) => {
-            // Cette fonction sera appelée par DualActionModal selon les choix de l'admin
-            await handleReplanificationConfirm(dateReplan, raison);
-            if (!planAction) {
-              throw new Error("Les informations du plan d'action sont requises pour creer l'OT correctif.");
-            }
-            await handleCorrectifConfirm(dateCorr, priorite, obs, planAction);
+          onConfirm={async (dateReplan, raison, dateCorr, priorite, obs, planAction, options) => {
+            await createInterventionFollowup({
+              interventionId: selectedInterventionForReplan.id,
+              parentOtNumber: (selectedInterventionForReplan.ordre_travail as any)?.numot,
+              interventionDate: selectedInterventionForReplan.date_debut,
+              steps: selectedInterventionForReplan.etapes_gamme_checkees || [],
+              createReplanification: options.creerReplanification,
+              replanificationDate: dateReplan,
+              replanificationReason: raison,
+              createCorrective: options.creerCorrectif,
+              correctiveDate: dateCorr,
+              correctivePriority: priorite,
+              correctiveObservations: obs,
+              planAction,
+            });
+            handleDualActionSuccess();
           }}
           onCancel={() => {
             setShowDualActionModal(false);

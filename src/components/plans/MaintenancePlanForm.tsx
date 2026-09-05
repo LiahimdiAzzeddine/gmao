@@ -10,8 +10,10 @@ import {
   Loader2,
   Info,
   RefreshCw,
+  ShieldAlert,
 } from 'lucide-react';
 import { MachineMultiSelect } from '../Ui/MachineMultiSelect';
+import { FailureModePicker } from '../Ui/FailureModePicker';
 import { GammeMaintenance } from '../../types/gammes';
 import { MaintenancePreview } from '../Ui/MaintenancePreview';
 import { JOURS_SEMAINE, SEMAINES_MOIS } from '../../utils/days';
@@ -81,6 +83,7 @@ export default function PlanPreventifForm() {
   const [loadingInitialData, setLoadingInitialData] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasExistingOT, setHasExistingOT] = useState(false);
+  const [selectedFailureModeIds, setSelectedFailureModeIds] = useState<string[]>([]);
 
   const [formData, setFormData] = useState<FormData>({
     client_id: '',
@@ -188,7 +191,7 @@ export default function PlanPreventifForm() {
 
       const { data: plan, error: planError } = await supabase
         .from('plans_maintenance')
-        .select('*, machine:machines!plans_maintenance_machine_id_fkey(*, client:clients(*)), plan_machines(machine_id, machine:machines(*, client:clients(*)))')
+        .select('*, machine:machines!plans_maintenance_machine_id_fkey(*, client:clients(*)), plan_machines(machine_id, machine:machines(*, client:clients(*))), plan_failure_modes(failure_mode_id)')
         .eq('id', resolvedPlanId)
         .single();
 
@@ -218,6 +221,9 @@ export default function PlanPreventifForm() {
       const clientId = firstAssociatedMachine?.client_id || plan.machine?.client_id || '';
       const presetValue = findRecurrencePreset(plan.type_recurrence || '', plan.intervalle || 1);
       const isCustom = presetValue === 'custom';
+      setSelectedFailureModeIds(
+        (plan.plan_failure_modes || []).map((item: { failure_mode_id: string }) => item.failure_mode_id),
+      );
 
       setFormData({
         client_id: clientId,
@@ -314,7 +320,8 @@ export default function PlanPreventifForm() {
         semaine_du_mois: formData.type_recurrence === 'mensuelle' ? formData.semaine_du_mois : null,
         date_debut: formData.date_debut,
         date_fin: formData.date_fin || null,
-        statut: formData.statut
+        statut: formData.statut,
+        failure_mode_ids: selectedFailureModeIds,
       };
 
       const { error: saveError } = await supabase.rpc('save_maintenance_plan', {
@@ -829,11 +836,36 @@ export default function PlanPreventifForm() {
               </div>
             </div>
 
-            {/* SECTION 4: PÉRIODE ET STATUT */}
+            {/* SECTION 4: DÉFAILLANCES POTENTIELLES */}
             <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
               <div className="mb-5 flex items-center gap-3 text-sm font-bold uppercase tracking-wide text-slate-700">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-100">
                   <span className="font-bold text-orange-600">4</span>
+                </div>
+                Défaillances potentielles ciblées
+              </div>
+
+              <div className="space-y-4 lg:pl-12">
+                <div className="flex items-start gap-3 rounded-xl border border-orange-100 bg-orange-50/70 p-3 text-sm text-slate-700">
+                  <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-[#ee6b1a]" />
+                  <p>
+                    Sélection facultative. Ces modes seront copiés dans chaque OT généré par ce plan afin de préparer les analyses par lot, famille et mode de défaillance.
+                  </p>
+                </div>
+                <FailureModePicker
+                  value={selectedFailureModeIds}
+                  onChange={setSelectedFailureModeIds}
+                  multiple
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            {/* SECTION 5: PÉRIODE ET STATUT */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+              <div className="mb-5 flex items-center gap-3 text-sm font-bold uppercase tracking-wide text-slate-700">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-100">
+                  <span className="font-bold text-orange-600">5</span>
                 </div>
                 Période et statut
               </div>

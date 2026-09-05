@@ -1,5 +1,5 @@
 import { Children, FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
-import { Folder, Loader2, Pencil, Plus, Tags, Trash2, Wrench } from 'lucide-react';
+import { Folder, Loader2, Pencil, Plus, Power, RotateCcw, Tags, Wrench } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { supabase } from '../lib/supabase';
 
@@ -124,24 +124,18 @@ export default function PlanActionOptionsManagement() {
     }
   };
 
-  const deleteItem = async (
+  const toggleItem = async (
     table: string,
     id: string,
     name: string,
     label: string,
-    hasChildren: boolean
+    active: boolean
   ) => {
-    const childrenWarning = hasChildren ? ' Ses éléments enfants seront également retirés du catalogue.' : '';
-    if (!window.confirm(`Supprimer ${label} « ${name} » ?${childrenWarning}\nLes anciens plans d'action et OT resteront inchangés.`)) return;
-    const { error } = await supabase.from(table).delete().eq('id', id);
-    if (error) return toast.error(`Suppression impossible : ${error.message}`);
-    if (table === 'plan_action_lots') {
-      setSelectedLotId('');
-      setSelectedFamilyId('');
-    } else if (table === 'plan_action_problem_families') {
-      setSelectedFamilyId('');
-    }
-    toast.success('Élément supprimé du catalogue.');
+    const action = active ? 'Désactiver' : 'Réactiver';
+    if (!window.confirm(`${action} ${label} « ${name} » ?\nL'historique des plans et OT sera conservé.`)) return;
+    const { error } = await supabase.from(table).update({ actif: !active }).eq('id', id);
+    if (error) return toast.error(`${action} impossible : ${error.message}`);
+    toast.success(active ? 'Élément désactivé sans supprimer son historique.' : 'Élément réactivé.');
     await loadCatalog();
   };
 
@@ -159,9 +153,9 @@ export default function PlanActionOptionsManagement() {
           <AddForm value={newLot} onChange={setNewLot} onSubmit={addLot} placeholder="Nouveau lot" loading={savingLevel === 'lot'} />
           <ItemList>
             {lots.map((lot) => (
-              <CatalogItem key={lot.id} name={lot.nom} selected={lot.id === selectedLotId} onSelect={() => setSelectedLotId(lot.id)}
+              <CatalogItem key={lot.id} name={lot.nom} active={lot.actif} selected={lot.id === selectedLotId} onSelect={() => setSelectedLotId(lot.id)}
                 onEdit={() => void renameItem('plan_action_lots', lot.id, lot.nom, 'lot')}
-                onDelete={() => void deleteItem('plan_action_lots', lot.id, lot.nom, 'le lot', families.some((family) => family.lot_id === lot.id))} />
+                onToggle={() => void toggleItem('plan_action_lots', lot.id, lot.nom, 'le lot', lot.actif)} />
             ))}
           </ItemList>
         </CatalogPanel>
@@ -170,9 +164,9 @@ export default function PlanActionOptionsManagement() {
           <AddForm value={newFamily} onChange={setNewFamily} onSubmit={addFamily} placeholder="Nouvelle famille" loading={savingLevel === 'family'} disabled={!selectedLot} />
           <ItemList emptyMessage={selectedLot ? 'Aucune famille dans ce lot.' : 'Sélectionnez un lot.'}>
             {visibleFamilies.map((family) => (
-              <CatalogItem key={family.id} name={family.nom} selected={family.id === selectedFamilyId} onSelect={() => setSelectedFamilyId(family.id)}
+              <CatalogItem key={family.id} name={family.nom} active={family.actif} selected={family.id === selectedFamilyId} onSelect={() => setSelectedFamilyId(family.id)}
                 onEdit={() => void renameItem('plan_action_problem_families', family.id, family.nom, 'famille')}
-                onDelete={() => void deleteItem('plan_action_problem_families', family.id, family.nom, 'la famille', modes.some((mode) => mode.famille_id === family.id))} />
+                onToggle={() => void toggleItem('plan_action_problem_families', family.id, family.nom, 'la famille', family.actif)} />
             ))}
           </ItemList>
         </CatalogPanel>
@@ -181,9 +175,9 @@ export default function PlanActionOptionsManagement() {
           <AddForm value={newMode} onChange={setNewMode} onSubmit={addMode} placeholder="Nouveau mode" loading={savingLevel === 'mode'} disabled={!selectedFamily} />
           <ItemList emptyMessage={selectedFamily ? 'Aucun mode dans cette famille.' : 'Sélectionnez une famille.'}>
             {visibleModes.map((mode) => (
-              <CatalogItem key={mode.id} name={mode.nom} selected={false} onSelect={() => undefined}
+              <CatalogItem key={mode.id} name={mode.nom} active={mode.actif} selected={false} onSelect={() => undefined}
                 onEdit={() => void renameItem('plan_action_failure_modes', mode.id, mode.nom, 'mode')}
-                onDelete={() => void deleteItem('plan_action_failure_modes', mode.id, mode.nom, 'le mode', false)} />
+                onToggle={() => void toggleItem('plan_action_failure_modes', mode.id, mode.nom, 'le mode', mode.actif)} />
             ))}
           </ItemList>
         </CatalogPanel>
@@ -210,10 +204,10 @@ function ItemList({ children, emptyMessage = 'Aucun élément.' }: { children: R
   return <div className="space-y-1">{items.length && items.some(Boolean) ? children : <p className="p-5 text-center text-sm text-slate-400">{emptyMessage}</p>}</div>;
 }
 
-function CatalogItem({ name, selected, onSelect, onEdit, onDelete }: { name: string; selected: boolean; onSelect: () => void; onEdit: () => void; onDelete: () => void }) {
-  return <div className={`group flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${selected ? 'border-slate-700 bg-slate-800 text-white' : 'border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50'}`}>
+function CatalogItem({ name, active, selected, onSelect, onEdit, onToggle }: { name: string; active: boolean; selected: boolean; onSelect: () => void; onEdit: () => void; onToggle: () => void }) {
+  return <div className={`group flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${selected ? 'border-slate-700 bg-slate-800 text-white' : 'border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50'} ${active ? '' : 'opacity-55'}`}>
     <button onClick={onSelect} className="min-w-0 flex-1 truncate text-left text-sm font-medium" title={name}>{name}</button>
     <button onClick={onEdit} title="Modifier" className={`rounded p-1.5 ${selected ? 'hover:bg-white/15' : 'text-blue-600 hover:bg-blue-50'}`}><Pencil size={15} /></button>
-    <button onClick={onDelete} title="Supprimer" className={`rounded p-1.5 ${selected ? 'hover:bg-white/15' : 'text-red-600 hover:bg-red-50'}`}><Trash2 size={15} /></button>
+    <button onClick={onToggle} title={active ? 'Désactiver' : 'Réactiver'} className={`rounded p-1.5 ${selected ? 'hover:bg-white/15' : active ? 'text-red-600 hover:bg-red-50' : 'text-emerald-600 hover:bg-emerald-50'}`}>{active ? <Power size={15} /> : <RotateCcw size={15} />}</button>
   </div>;
 }

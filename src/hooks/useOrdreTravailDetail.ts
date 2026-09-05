@@ -64,8 +64,20 @@ export const useOrdreTravailDetail = (id: string) => {
             statut,
             numot,
             observations,
+            classification_source,
+            classification_confirmed,
             ot_parent_id,
             created_at,
+            failure_modes:work_order_failure_modes(
+              source,
+              failure_mode:plan_action_failure_modes(
+                nom,
+                famille:plan_action_problem_families(
+                  nom,
+                  lot:plan_action_lots(nom)
+                )
+              )
+            ),
             machine:machine_id (
               id,
               machine_id,

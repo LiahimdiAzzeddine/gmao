@@ -26,7 +26,8 @@ interface DualActionModalProps {
     dateProgrammeeCorrectif: string,
     prioriteCorrectif: string,
     observationsCorrectif: string,
-    planAction?: PlanActionFormData
+    planAction: PlanActionFormData | undefined,
+    options: { creerReplanification: boolean; creerCorrectif: boolean }
   ) => Promise<void>;
   onCancel: () => void;
   onValidateWithoutOT?: () => void;
@@ -84,26 +85,15 @@ export default function DualActionModal({
 
     setLoading(true);
     try {
-      // Si les deux OT sont sélectionnés, utiliser la fonction originale
-      if (creerReplanification && creerCorrectif) {
-        await onConfirm(
-          new Date(dateReplanification),
-          raisonReport,
-          dateProgrammeeCorrectif,
-          prioriteCorrectif,
-          observationsCorrectif
-        );
-      } 
-      // Si seulement la replanification
-      else if (creerReplanification) {
-        // Appeler la fonction de replanification seule
-        await handleReplanificationSeule();
-      }
-      // Si seulement le correctif
-      else if (creerCorrectif) {
-        // Appeler la fonction de correctif seul
-        await handleCorrectifSeul();
-      }
+      await onConfirm(
+        new Date(dateReplanification),
+        raisonReport,
+        dateProgrammeeCorrectif,
+        prioriteCorrectif,
+        observationsCorrectif,
+        undefined,
+        { creerReplanification, creerCorrectif }
+      );
     } catch (error) {
       console.error('Erreur lors de la création des OT:', error);
     } finally {
@@ -121,7 +111,8 @@ export default function DualActionModal({
         dateProgrammeeCorrectif,
         prioriteCorrectif,
         observationsCorrectif,
-        planAction
+        planAction,
+        { creerReplanification, creerCorrectif }
       );
     } catch (error) {
       console.error('Erreur lors de la création des OT:', error);
@@ -129,21 +120,6 @@ export default function DualActionModal({
       setLoading(false);
       setShowPlanActionModal(false);
     }
-  };
-
-  const handleReplanificationSeule = async () => {
-    // Cette fonction sera appelée depuis InterventionsTable
-    // On ferme le modal et on laisse le parent gérer
-    onCancel();
-    // TODO: Implémenter la logique dans InterventionsTable
-  };
-
-  // Fonction pour créer seulement l'OT correctif
-  const handleCorrectifSeul = async () => {
-    // Cette fonction sera appelée depuis InterventionsTable
-    // On ferme le modal et on laisse le parent gérer
-    onCancel();
-    // TODO: Implémenter la logique dans InterventionsTable
   };
 
   return (

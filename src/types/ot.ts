@@ -125,6 +125,15 @@ export type Technicien = {
 
 // Détail de l’ordre de travail
 export type OrdreTravailDetail = {
+  classification_source?: string | null;
+  classification_confirmed?: boolean;
+  failure_modes?: Array<{
+    source: string;
+    failure_mode?: {
+      nom: string;
+      famille?: { nom: string; lot?: { nom: string } | null } | null;
+    } | null;
+  }>;
   type_intervention: string;
   ot_parent?: string;
  type: TypeOt;

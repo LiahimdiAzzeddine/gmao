@@ -12,6 +12,7 @@ export default function DemandeInterventionView() {
   const [planningData, setPlanningData] = useState<MaintenancePlanning[]>([]);
   const [nextOccurrences, setNextOccurrences] = useState<Date[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failureClassification, setFailureClassification] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -33,6 +34,17 @@ export default function DemandeInterventionView() {
       }
 
       setDemandeData(demande);
+
+      if (demande.failure_mode_id) {
+        const { data: mode } = await supabase
+          .from('plan_action_failure_modes')
+          .select('nom, famille:plan_action_problem_families(nom, lot:plan_action_lots(nom))')
+          .eq('id', demande.failure_mode_id)
+          .maybeSingle();
+        const family = Array.isArray(mode?.famille) ? mode?.famille[0] : mode?.famille;
+        const lot = Array.isArray(family?.lot) ? family?.lot[0] : family?.lot;
+        setFailureClassification([lot?.nom, family?.nom, mode?.nom].filter(Boolean).join(' · ') || null);
+      }
 
       // 2. Charger la planification associée
       const { data: planning, error: planningError } = await supabase
@@ -102,6 +114,16 @@ export default function DemandeInterventionView() {
             ))}
           </div>
         </div>
+
+        {/* Description */}
+        {demandeData.type_intervention === 'corrective' && (
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700">Classification de la défaillance</label>
+            <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-medium text-orange-900">
+              {failureClassification || 'Non classée'}
+            </div>
+          </div>
+        )}
 
         {/* Description */}
         <div className="space-y-2">

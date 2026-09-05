@@ -177,6 +177,19 @@ export default function OrdreTravailDetails() {
 
         <DateCards ordre={ordre} />
 
+        {ordre.failure_modes && ordre.failure_modes.length > 0 && (
+          <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
+            <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-orange-900">Classification des défaillances</h2>
+            <div className="flex flex-wrap gap-2">
+              {ordre.failure_modes.map((relation, index) => {
+                const mode = relation.failure_mode;
+                const label = [mode?.famille?.lot?.nom, mode?.famille?.nom, mode?.nom].filter(Boolean).join(' · ');
+                return <span key={`${relation.source}-${mode?.nom || index}`} className="rounded-full border border-orange-200 bg-white px-3 py-1.5 text-xs font-semibold text-orange-900">{label || 'Non classée'}</span>;
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Compact summary: keep OT core info + small summary for machine/plan/client/code PT */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
           <div className="bg-white rounded-xl border border-slate-200 p-6">

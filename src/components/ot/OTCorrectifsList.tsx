@@ -32,6 +32,12 @@ interface OrdreTravail {
   statut: 'prévu' | 'en_cours' | 'terminé' | 'clôturé_avec_anomalie' | 'annulé';
   observations: string | null;
   cause: string | null;
+  lot_defaillance: string | null;
+  famille_probleme: string | null;
+  mode_defaillance: string | null;
+  problem_lot?: { nom: string } | null;
+  problem_family?: { nom: string } | null;
+  failure_mode?: { nom: string } | null;
   type: string;
   created_at: string;
   machine?: {
@@ -116,7 +122,10 @@ export default function OTCorrectifsList() {
           technicien:profiles!ordres_travail_technicien_id_fkey(
             id,
             nom
-          )
+          ),
+          problem_lot:plan_action_lots!ordres_travail_problem_lot_id_fkey(nom),
+          problem_family:plan_action_problem_families!ordres_travail_problem_family_id_fkey(nom),
+          failure_mode:plan_action_failure_modes!ordres_travail_failure_mode_id_fkey(nom)
         `)
         .eq('type', 'correctif')
         .order('date_programmee', { ascending: false });
@@ -209,6 +218,10 @@ export default function OTCorrectifsList() {
         o.machine?.client?.raison_sociale?.toLowerCase().includes(term) ||
         o.machine?.client?.prenom?.toLowerCase().includes(term) ||
         o.technicien?.nom?.toLowerCase().includes(term) ||
+        o.problem_lot?.nom?.toLowerCase().includes(term) ||
+        o.problem_family?.nom?.toLowerCase().includes(term) ||
+        o.failure_mode?.nom?.toLowerCase().includes(term) ||
+        o.mode_defaillance?.toLowerCase().includes(term) ||
         o.cause?.toLowerCase().includes(term) ||
         o.observations?.toLowerCase().includes(term)
       );
@@ -569,6 +582,12 @@ export default function OTCorrectifsList() {
                     )}
 
                     {/* Cause */}
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
+                      <span className="font-semibold">Défaillance : </span>
+                      {ordre.failure_mode?.nom || ordre.mode_defaillance || 'Non classée'}
+                    </div>
+
+                    {/* Cause */}
                     {ordre.cause && (
                       <div className="pt-2 border-t border-slate-200">
                         <div className="flex items-start gap-2">
@@ -622,6 +641,9 @@ export default function OTCorrectifsList() {
                         Plan
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Défaillance
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                         Machine
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
@@ -673,6 +695,12 @@ export default function OTCorrectifsList() {
                           ) : (
                             <span className="text-sm italic text-slate-400">Non associé</span>
                           )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-medium text-slate-900">{ordre.failure_mode?.nom || ordre.mode_defaillance || 'Non classée'}</div>
+                          <div className="mt-1 text-xs text-slate-500">
+                            {[ordre.problem_lot?.nom || ordre.lot_defaillance, ordre.problem_family?.nom || ordre.famille_probleme].filter(Boolean).join(' · ') || '—'}
+                          </div>
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-sm text-slate-900 font-medium">

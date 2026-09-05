@@ -27,6 +27,9 @@ type PlanActionRow = {
   lot_defaillance: string | null;
   famille_probleme: string | null;
   mode_defaillance: string | null;
+  problem_lot?: { nom: string } | null;
+  problem_family?: { nom: string } | null;
+  failure_mode?: { nom: string } | null;
   action_recommandee: string | null;
   gravite_libelle: string | null;
   gravite_classe: number | null;
@@ -163,6 +166,9 @@ export default function ClientPlanAction() {
           lot_defaillance,
           famille_probleme,
           mode_defaillance,
+          problem_lot:plan_action_lots!ordres_travail_problem_lot_id_fkey(nom),
+          problem_family:plan_action_problem_families!ordres_travail_problem_family_id_fkey(nom),
+          failure_mode:plan_action_failure_modes!ordres_travail_failure_mode_id_fkey(nom),
           action_recommandee,
           gravite_libelle,
           gravite_classe,
@@ -199,7 +205,13 @@ export default function ClientPlanAction() {
 
       if (fetchError) throw fetchError;
 
-      const correctiveRows = ((data || []) as PlanActionRow[]).filter((row) => {
+      const normalizedRows = ((data || []) as unknown as PlanActionRow[]).map((row) => ({
+        ...row,
+        lot_defaillance: row.problem_lot?.nom || row.lot_defaillance,
+        famille_probleme: row.problem_family?.nom || row.famille_probleme,
+        mode_defaillance: row.failure_mode?.nom || row.mode_defaillance,
+      }));
+      const correctiveRows = normalizedRows.filter((row) => {
         return isCorrective(row.type) && Boolean(row.ot_parent_id) && row.machine?.client_id === clientId;
       });
 

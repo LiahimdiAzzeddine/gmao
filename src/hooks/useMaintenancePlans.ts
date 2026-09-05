@@ -81,6 +81,16 @@ export function useMaintenancePlans(params: UseMaintenancePlansParams) {
               client:clients(id, raison_sociale, prenom, telephone, adresse, logo_url)
             )
           ),
+          plan_failure_modes(
+            failure_mode_id,
+            mode:plan_action_failure_modes(
+              id, nom,
+              family:plan_action_problem_families(
+                id, nom,
+                lot:plan_action_lots(id, nom)
+              )
+            )
+          ),
           lot:lots(nom),
           gamme:gammes_maintenance(nom)
         `, { count: 'exact' })

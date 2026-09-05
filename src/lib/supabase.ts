@@ -183,6 +183,9 @@ export type DemandeIntervention = {
   date_demande: string;
   created_at: string;
   updated_at: string;
+  problem_lot_id?: string | null;
+  problem_family_id?: string | null;
+  failure_mode_id?: string | null;
    // règle de planification calendaire
   planning_rule?: {
     weekOfMonth: number; // 1, 2, 3, 4

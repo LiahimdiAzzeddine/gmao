@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 export interface PlanActionFormData {
+  failure_mode_id?: string;
   lot_defaillance: string;
   famille_probleme: string;
   mode_defaillance: string;
@@ -214,7 +215,7 @@ export default function PlanActionValidationModal({
   const [form, setForm] = useState<PlanActionFormData>(defaultForm);
   const [selectedLot, setSelectedLot] = useState<string>(() => findMatchingLot(lotName) || '');
   const [selectedProblemFamily, setSelectedProblemFamily] = useState<string>('all');
-  const [customProblems, setCustomProblems] = useState<Array<{ lot: string; family: string; problem: string | null }>>([]);
+  const [customProblems, setCustomProblems] = useState<Array<{ id?: string; lot: string; family: string; problem: string | null }>>([]);
   const [databaseCatalogLoaded, setDatabaseCatalogLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -225,7 +226,7 @@ export default function PlanActionValidationModal({
       Promise.all([
         supabase.from('plan_action_lots').select('id, nom').eq('actif', true),
         supabase.from('plan_action_problem_families').select('id, lot_id, nom').eq('actif', true),
-        supabase.from('plan_action_failure_modes').select('famille_id, nom').eq('actif', true)
+        supabase.from('plan_action_failure_modes').select('id, famille_id, nom').eq('actif', true)
       ]).then(([lotsResult, familiesResult, modesResult]) => {
         if (!active) return;
         const error = lotsResult.error || familiesResult.error || modesResult.error;
@@ -234,16 +235,16 @@ export default function PlanActionValidationModal({
           return;
         }
         const lotNames = new Map((lotsResult.data || []).map((lot) => [lot.id, lot.nom]));
-        const modesByFamily = new Map<string, string[]>();
+        const modesByFamily = new Map<string, Array<{ id: string; nom: string }>>();
         (modesResult.data || []).forEach((mode) => {
-          modesByFamily.set(mode.famille_id, [...(modesByFamily.get(mode.famille_id) || []), mode.nom]);
+          modesByFamily.set(mode.famille_id, [...(modesByFamily.get(mode.famille_id) || []), { id: mode.id, nom: mode.nom }]);
         });
         const catalog = (familiesResult.data || []).flatMap((family) => {
           const lot = lotNames.get(family.lot_id);
           if (!lot) return [];
           const familyModes = modesByFamily.get(family.id) || [];
           return familyModes.length
-            ? familyModes.map((problem) => ({ lot, family: family.nom, problem }))
+            ? familyModes.map((mode) => ({ id: mode.id, lot, family: family.nom, problem: mode.nom }))
             : [{ lot, family: family.nom, problem: null }];
         });
         setDatabaseCatalogLoaded(true);
@@ -261,7 +262,7 @@ export default function PlanActionValidationModal({
   }, []);
 
   const allProblems = useMemo(() => {
-    const unique = new Map<string, { lot: string; family: string; problem: string }>();
+    const unique = new Map<string, { id?: string; lot: string; family: string; problem: string }>();
     const customModes = customProblems.filter(
       (item): item is { lot: string; family: string; problem: string } => Boolean(item.problem)
     );
@@ -347,6 +348,7 @@ export default function PlanActionValidationModal({
 
       await onConfirm({
         ...form,
+        failure_mode_id: selectedProblem?.id,
         lot_defaillance: selectedProblem?.lot || selectedLot,
         famille_probleme: selectedProblem?.family || (selectedProblemFamily === 'all' ? '' : selectedProblemFamily)
       });
@@ -408,7 +410,8 @@ export default function PlanActionValidationModal({
                       setSelectedProblemFamily('all');
                       updateField('lot_defaillance', event.target.value);
                       updateField('famille_probleme', '');
-                      updateField('mode_defaillance', '');
+                    updateField('mode_defaillance', '');
+                    updateField('failure_mode_id', undefined);
                     }}
                     className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                     disabled={loading}
@@ -432,6 +435,7 @@ export default function PlanActionValidationModal({
                   setSelectedProblemFamily(event.target.value);
                   updateField('famille_probleme', event.target.value === 'all' ? '' : event.target.value);
                   updateField('mode_defaillance', '');
+                  updateField('failure_mode_id', undefined);
                 }}
                   className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                   disabled={loading || !selectedLot}
@@ -450,6 +454,7 @@ export default function PlanActionValidationModal({
                   onChange={(event) => {
                     const problem = filteredProblems.find((item) => item.problem === event.target.value);
                     updateField('mode_defaillance', event.target.value);
+                    updateField('failure_mode_id', problem?.id);
                     updateField('lot_defaillance', problem?.lot || selectedLot);
                     updateField('famille_probleme', problem?.family || (selectedProblemFamily === 'all' ? '' : selectedProblemFamily));
                   }}

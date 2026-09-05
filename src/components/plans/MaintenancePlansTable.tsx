@@ -281,6 +281,11 @@ export default function MaintenancePlansTable() {
           <div className="text-sm text-slate-600 mb-2">
             {plan.gamme?.nom}
           </div>
+          <div className="mb-2 text-xs font-medium text-slate-500">
+            {plan.plan_failure_modes?.length
+              ? `${plan.plan_failure_modes.length} mode${plan.plan_failure_modes.length > 1 ? 's' : ''} de défaillance ciblé${plan.plan_failure_modes.length > 1 ? 's' : ''}`
+              : 'Défaillances non classées'}
+          </div>
           <div className="text-xs text-slate-500 mb-3">
             Client: {plan.machine?.client?.raison_sociale || plan.machine?.client?.prenom || 'N/A'}
           </div>
@@ -351,7 +356,17 @@ export default function MaintenancePlansTable() {
                   </div>
                 )}
               </td>
-              <td className="px-6 py-4 text-slate-700 font-medium">{plan.gamme?.nom}</td>
+              <td className="px-6 py-4 text-slate-700 font-medium">
+                <div>{plan.gamme?.nom}</div>
+                <div
+                  className="mt-1 text-xs font-normal text-slate-500"
+                  title={plan.plan_failure_modes?.map((item) => item.mode?.nom).filter(Boolean).join(', ') || undefined}
+                >
+                  {plan.plan_failure_modes?.length
+                    ? `${plan.plan_failure_modes.length} mode${plan.plan_failure_modes.length > 1 ? 's' : ''} ciblé${plan.plan_failure_modes.length > 1 ? 's' : ''}`
+                    : 'Non classé'}
+                </div>
+              </td>
               <td className="px-6 py-4 text-slate-600 text-sm">
                 {getRecurrenceLabel(plan)}
               </td>

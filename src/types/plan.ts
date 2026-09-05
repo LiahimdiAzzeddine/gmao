@@ -33,6 +33,14 @@ export interface Plan {
   machine?: Machine;
   machines?: Machine[];
   plan_machines?: Array<{ machine_id: string; machine?: Machine }>;
+  plan_failure_modes?: Array<{
+    failure_mode_id: string;
+    mode?: {
+      id: string;
+      nom: string;
+      family?: { id: string; nom: string; lot?: { id: string; nom: string } };
+    };
+  }>;
   lot?: { nom: string };
   gamme?: { nom: string };
 }

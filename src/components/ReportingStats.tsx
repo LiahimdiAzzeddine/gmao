@@ -15,6 +15,7 @@ import {
   Target
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import CorrectiveInterventionsReport from './reporting/CorrectiveInterventionsReport';
 
 interface ReportingStats {
   totalInterventions: number;
@@ -58,7 +59,7 @@ export default function ReportingStats() {
         supabase.from('interventions').select('*', { count: 'exact', head: true }),
         supabase.from('interventions').select('*', { count: 'exact', head: true }).eq('valide', true),
         supabase.from('machines').select('*', { count: 'exact', head: true }),
-        supabase.from('machines').select('*', { count: 'exact', head: true }).eq('statut', 'actif'),
+        supabase.from('machines').select('*', { count: 'exact', head: true }).neq('etat', 'hors_service'),
         supabase.from('clients').select('*', { count: 'exact', head: true }),
         supabase.from('ordres_travail').select('*', { count: 'exact', head: true }),
         supabase.from('plans_maintenance').select('*', { count: 'exact', head: true }).eq('statut', 'actif')
@@ -223,6 +224,8 @@ export default function ReportingStats() {
             </div>
           </div>
         </div>
+
+        <CorrectiveInterventionsReport />
 
         {/* Rapports et Analyses */}
         <div className="mb-6">
