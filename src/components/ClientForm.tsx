@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase, supabaseAnon } from "../lib/supabase";
-import { Save, X, Upload, Copy, Check, User, Mail, Lock, Building2, Phone, MapPin, CreditCard, ImageIcon } from "lucide-react";
-import AdminHeader from "./AdminHeader";
+import { Save, X, Upload, Copy, Check, User, Mail, Lock, Building2, Phone, MapPin, CreditCard, ImageIcon, Eye, EyeOff, KeyRound } from "lucide-react";
 
 type FormDataState = {
   nom: string;
@@ -30,6 +29,12 @@ export default function ClientForm() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [previewLogo, setPreviewLogo] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   const [formData, setFormData] = useState<FormDataState>({
     nom: "",
@@ -201,6 +206,67 @@ export default function ClientForm() {
       .eq("id", id);
 
     if (clientError) throw clientError;
+  }
+
+  async function handlePasswordUpdate() {
+    setPasswordError(null);
+    setPasswordSuccess(false);
+
+    if (!profileId) {
+      setPasswordError("Ce client n’est associé à aucun compte utilisateur.");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError("Le nouveau mot de passe doit contenir au moins 6 caractères.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("La confirmation ne correspond pas au nouveau mot de passe.");
+      return;
+    }
+
+    setUpdatingPassword(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Votre session administrateur a expiré.");
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-auth`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: profileId, password: newPassword }),
+      });
+
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "La modification du compte Auth a échoué.");
+      }
+
+      // Maintient la compatibilité avec les écrans existants qui lisent encore
+      // le mot de passe depuis profiles. L'Edge Function récente fait aussi cette synchronisation.
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ password: newPassword })
+        .eq("id", profileId);
+
+      if (profileError) {
+        throw new Error("Le mot de passe Auth a été modifié, mais la fiche locale n’a pas pu être synchronisée.");
+      }
+
+      setFormData((current) => ({ ...current, password: newPassword }));
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordSuccess(true);
+    } catch (err) {
+      console.error("Erreur modification mot de passe client:", err);
+      setPasswordError(err instanceof Error ? err.message : "Impossible de modifier le mot de passe.");
+    } finally {
+      setUpdatingPassword(false);
+    }
   }
 
   async function handleCreate() {
@@ -562,6 +628,103 @@ export default function ClientForm() {
                       <span className="font-medium text-slate-600">Mot de passe:</span>
                       <span className="text-slate-800 font-mono">{formData.password || "••••••••"}</span>
                     </div>
+                  </div>
+                </div>
+
+                <div className="mb-4 rounded-xl border border-orange-200 bg-white p-4 sm:p-5">
+                  <div className="mb-4 flex items-start gap-3">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-orange-50 text-[#d94f00]">
+                      <KeyRound size={20} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800">Modifier le mot de passe</h4>
+                      <p className="mt-0.5 text-xs leading-5 text-slate-500">
+                        Le nouveau mot de passe sera utilisé dès la prochaine connexion du client.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                      <label htmlFor="new-client-password" className="mb-2 block text-sm font-semibold text-slate-700">
+                        Nouveau mot de passe
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <input
+                          id="new-client-password"
+                          type={showNewPassword ? "text" : "password"}
+                          value={newPassword}
+                          onChange={(event) => {
+                            setNewPassword(event.target.value);
+                            setPasswordError(null);
+                            setPasswordSuccess(false);
+                          }}
+                          autoComplete="new-password"
+                          minLength={6}
+                          className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-10 text-sm outline-none transition focus:border-[#d94f00] focus:ring-4 focus:ring-orange-100"
+                          placeholder="Minimum 6 caractères"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword((visible) => !visible)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                          aria-label={showNewPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                        >
+                          {showNewPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="confirm-client-password" className="mb-2 block text-sm font-semibold text-slate-700">
+                        Confirmer le mot de passe
+                      </label>
+                      <div className="relative">
+                        <Check className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <input
+                          id="confirm-client-password"
+                          type={showNewPassword ? "text" : "password"}
+                          value={confirmPassword}
+                          onChange={(event) => {
+                            setConfirmPassword(event.target.value);
+                            setPasswordError(null);
+                            setPasswordSuccess(false);
+                          }}
+                          autoComplete="new-password"
+                          minLength={6}
+                          className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-[#d94f00] focus:ring-4 focus:ring-orange-100"
+                          placeholder="Saisissez-le une deuxième fois"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {passwordError && (
+                    <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-700" role="alert">
+                      {passwordError}
+                    </div>
+                  )}
+                  {passwordSuccess && (
+                    <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-700" role="status">
+                      <Check size={17} /> Mot de passe modifié avec succès.
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handlePasswordUpdate}
+                      disabled={updatingPassword || !newPassword || !confirmPassword}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#d94f00] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#bd4500] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {updatingPassword ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      ) : (
+                        <KeyRound size={17} />
+                      )}
+                      {updatingPassword ? "Modification…" : "Modifier le mot de passe"}
+                    </button>
                   </div>
                 </div>
 

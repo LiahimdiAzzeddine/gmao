@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertTriangle, BarChart3, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Cpu, FileSpreadsheet, Home, Inbox, LogOut, Menu, Users, Wrench, X } from 'lucide-react';
+import { AlertTriangle, BarChart3, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Cpu, FileSpreadsheet, Home, Inbox, LogOut, Menu, UserCog, Users, Wrench, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 type LayoutProps = {
@@ -20,6 +20,7 @@ const navItems: AdminNavItem[] = [
   { path: '/admin', label: 'Dashboard', icon: Home },
   { path: '/admin/machines', label: 'Machines', icon: Cpu, matches: ['/admin/machine/'] },
   { path: '/admin/clients', label: 'Clients', icon: Users, matches: ['/admin/client/'] },
+  { path: '/admin/techniciens', label: 'Techniciens', icon: UserCog },
   { path: '/admin/demandes', label: 'Demandes clients', icon: Inbox },
   { path: '/admin/plans-maintenance', label: 'Plans de maintenance', icon: CalendarDays },
   { path: '/admin/ot-preventif', label: 'OT préventifs', icon: ClipboardList, matches: ['/admin/addOT'] },

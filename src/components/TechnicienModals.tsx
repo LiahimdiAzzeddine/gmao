@@ -93,8 +93,8 @@ export const AddTechnicienModal: React.FC<AddTechnicienModalProps> = ({ isOpen, 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
         <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-slate-800">Ajouter un technicien</h2>
           <button
@@ -123,7 +123,7 @@ export const AddTechnicienModal: React.FC<AddTechnicienModalProps> = ({ isOpen, 
                 type="text"
                 value={nom}
                 onChange={(e) => setNom(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-4 outline-none focus:border-[#f98440]/60 focus:ring-2 focus:ring-[#f98440]/15"
                 placeholder="Jean Dupont"
                 required
               />
@@ -140,7 +140,7 @@ export const AddTechnicienModal: React.FC<AddTechnicienModalProps> = ({ isOpen, 
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-4 outline-none focus:border-[#f98440]/60 focus:ring-2 focus:ring-[#f98440]/15"
                 placeholder="jean.dupont@example.com"
                 required
               />
@@ -157,7 +157,7 @@ export const AddTechnicienModal: React.FC<AddTechnicienModalProps> = ({ isOpen, 
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-12 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-12 outline-none focus:border-[#f98440]/60 focus:ring-2 focus:ring-[#f98440]/15"
                 placeholder="••••••••"
                 required
                 minLength={6}
@@ -184,7 +184,7 @@ export const AddTechnicienModal: React.FC<AddTechnicienModalProps> = ({ isOpen, 
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#f98440] px-4 py-2.5 font-semibold text-white transition-colors hover:bg-[#e97435] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -311,8 +311,8 @@ const handleSubmit = async (e: React.FormEvent) => {
   if (!isOpen || !technicien) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl">
         <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between rounded-t-xl">
           <h2 className="text-xl font-bold text-slate-800">Modifier le technicien</h2>
           <button
@@ -341,7 +341,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 type="text"
                 value={nom}
                 onChange={(e) => setNom(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-4 outline-none focus:border-[#f98440]/60 focus:ring-2 focus:ring-[#f98440]/15"
                 placeholder="Jean Dupont"
                 required
               />
@@ -358,7 +358,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-4 outline-none focus:border-[#f98440]/60 focus:ring-2 focus:ring-[#f98440]/15"
                 placeholder="jean.dupont@example.com"
               />
             </div>
@@ -374,7 +374,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-12 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-12 outline-none focus:border-[#f98440]/60 focus:ring-2 focus:ring-[#f98440]/15"
                 placeholder="Laisser vide pour ne pas changer"
                 minLength={6}
               />
@@ -400,7 +400,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#f98440] px-4 py-2.5 font-semibold text-white transition-colors hover:bg-[#e97435] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -470,13 +470,13 @@ export const ViewTechnicienModal: React.FC<ViewTechnicienModalProps> = ({ isOpen
   if (!isOpen || !technicien) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 flex items-center justify-between rounded-t-lg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between bg-[#f98440] px-5 py-4">
           <h2 className="text-base font-bold text-white">Profil du technicien</h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-blue-500 rounded transition-colors"
+            className="rounded-lg p-1.5 transition-colors hover:bg-white/20"
           >
             <X size={16} className="text-white" />
           </button>
@@ -484,7 +484,7 @@ export const ViewTechnicienModal: React.FC<ViewTechnicienModalProps> = ({ isOpen
 
         <div className="p-4">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#f98440] text-lg font-bold text-white">
               {technicien.nom.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
@@ -568,15 +568,15 @@ export const ViewTechnicienModal: React.FC<ViewTechnicienModalProps> = ({ isOpen
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <div className="bg-blue-50 rounded p-2 border border-blue-200">
-                <div className="flex items-center gap-1.5 text-blue-600 mb-1">
+              <div className="rounded-xl border border-orange-200 bg-orange-50 p-3">
+                <div className="mb-1 flex items-center gap-1.5 text-[#f98440]">
                   <Wrench size={14} />
                   <span className="text-xs font-medium">Total</span>
                 </div>
-                <p className="text-lg font-bold text-blue-900">
+                <p className="text-lg font-bold text-slate-900">
                   {technicien.totalInterventions}
                 </p>
-                <p className="text-xs text-blue-600">interventions</p>
+                <p className="text-xs text-[#d96523]">interventions</p>
               </div>
 
               <div className="bg-green-50 rounded p-2 border border-green-200">
@@ -596,7 +596,7 @@ export const ViewTechnicienModal: React.FC<ViewTechnicienModalProps> = ({ isOpen
             {technicien.email && technicien.password && (
               <button
                 onClick={copyBothCredentials}
-                className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors flex items-center justify-center gap-1.5"
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#f98440] px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#e97435]"
               >
                 {copiedBoth ? (
                   <>
@@ -642,8 +642,8 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   if (!isOpen || !technicien) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl">
         <div className="bg-red-50 border-b border-red-200 px-6 py-4 flex items-center gap-3 rounded-t-xl">
           <div className="bg-red-100 p-2 rounded-lg">
             <AlertTriangle size={24} className="text-red-600" />

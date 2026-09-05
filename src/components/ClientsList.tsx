@@ -20,7 +20,10 @@ import {
   Calendar,
   Eye,
   Users,
-  Activity
+  Activity,
+  LockKeyhole,
+  UnlockKeyhole,
+  Loader2
 } from 'lucide-react';
 
 interface ClientsStats {
@@ -45,6 +48,9 @@ export default function ClientsList() {
     (searchParams.get('filter') as 'all' | 'with-machines' | 'without-machines') || 'all'
   );
   const [stats, setStats] = useState<ClientsStats>({ total: 0, withMachines: 0, recentlyAdded: 0 });
+  const [accountLocks, setAccountLocks] = useState<Record<string, boolean>>({});
+  const [accessUpdatingId, setAccessUpdatingId] = useState<string | null>(null);
+  const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
 
   useEffect(() => {
     loadClients();
@@ -75,6 +81,7 @@ export default function ClientsList() {
       
       const clientsData = data || [];
       setClients(clientsData);
+      void loadAccountStatuses(clientsData);
       
       // Calculate stats
       const now = new Date();
@@ -92,8 +99,72 @@ export default function ClientsList() {
     }
   }
 
+  async function callUserAuthFunction(payload: Record<string, unknown>) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const session = sessionData.session;
+    if (!session) throw new Error("Votre session administrateur a expiré.");
+
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-auth`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result?.success) {
+      throw new Error(result?.error || "Impossible de gérer l’accès au compte.");
+    }
+    return result;
+  }
+
+  async function loadAccountStatuses(clientRows: Client[]) {
+    const userIds = clientRows.map((client) => client.profile?.id).filter((id): id is string => Boolean(id));
+    if (!userIds.length) {
+      return;
+    }
+
+    try {
+      const result = await callUserAuthFunction({ userIds });
+      const nextLocks: Record<string, boolean> = {};
+      Object.entries(result.statuses || {}).forEach(([userId, status]) => {
+        nextLocks[userId] = Boolean((status as { locked?: boolean }).locked);
+      });
+      setAccountLocks(nextLocks);
+    } catch (err) {
+      console.warn("Impossible de charger l’état des comptes clients:", err);
+    }
+  }
+
+  async function toggleClientAccess(client: Client) {
+    const profileId = client.profile?.id;
+    if (!profileId) {
+      setError("Ce client n’est associé à aucun compte utilisateur.");
+      return;
+    }
+
+    const currentlyLocked = Boolean(accountLocks[profileId]);
+    const clientName = client.raison_sociale || client.profile?.nom || "ce client";
+    const action = currentlyLocked ? "déverrouiller" : "verrouiller";
+    if (!window.confirm(`Voulez-vous ${action} le compte de « ${clientName} » ?`)) return;
+
+    setAccessUpdatingId(client.id);
+    setError("");
+    try {
+      const result = await callUserAuthFunction({ userId: profileId, locked: !currentlyLocked });
+      setAccountLocks((current) => ({ ...current, [profileId]: Boolean(result.locked) }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Impossible de modifier l’accès au compte.");
+    } finally {
+      setAccessUpdatingId(null);
+    }
+  }
+
   const handleDelete = async (clientId: string) => {
     try {
+      setDeletingClientId(clientId);
+      setError('');
       const { data: sessionData } = await supabase.auth.getSession();
       const session = sessionData.session;
       if (!session) throw new Error("Non authentifié");
@@ -104,7 +175,7 @@ export default function ClientsList() {
           Authorization: `Bearer ${session.access_token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ clientId }),
+        body: JSON.stringify({ clientId, confirmCascade: true }),
       });
 
       const result = await response.json();
@@ -118,6 +189,8 @@ export default function ClientsList() {
       loadClients();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue");
+    } finally {
+      setDeletingClientId(null);
     }
   };
 
@@ -284,6 +357,8 @@ export default function ClientsList() {
   const ClientCard = ({ client }: { client: Client }) => {
     const machineCount = client.machines?.length || 0;
     const isRecent = new Date(client.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const clientProfileId = client.profile?.id as string | undefined;
+    const isLocked = clientProfileId ? Boolean(accountLocks[clientProfileId]) : false;
 
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-300 hover:border-[#f98440]/60 hover:shadow-md">
@@ -301,6 +376,11 @@ export default function ClientsList() {
                 {isRecent && (
                   <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
                     Nouveau
+                  </span>
+                )}
+                {isLocked && (
+                  <span className="inline-flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 text-xs font-bold text-red-700">
+                    <LockKeyhole size={11} /> Verrouillé
                   </span>
                 )}
               </div>
@@ -351,21 +431,29 @@ export default function ClientsList() {
           {/* Actions */}
           <div className="flex-shrink-0 lg:w-[250px]">
           {deleteConfirm === client.id ? (
-            <div className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-2">
-              <div className="flex items-center gap-1.5 text-red-700">
-                <Trash2 size={12} />
-                <p className="text-xs font-medium">Confirmer la suppression ?</p>
+            <div className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-3">
+              <div className="flex items-start gap-2 text-red-800">
+                <Trash2 size={15} className="mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-bold">Suppression définitive</p>
+                  <p className="mt-1 text-[11px] leading-4 text-red-700">
+                    Le compte client, ses machines, plans, OT, interventions, demandes, documents et photos seront supprimés. Cette action est irréversible et réservée aux administrateurs.
+                  </p>
+                </div>
               </div>
               <div className="flex gap-1.5">
                 <button
                   onClick={() => handleDelete(client.id)}
-                  className="flex-1 px-2 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 font-medium text-xs transition-all"
+                  disabled={deletingClientId === client.id}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded bg-red-600 px-2 py-1.5 text-xs font-medium text-white transition-all hover:bg-red-700 disabled:cursor-wait disabled:opacity-60"
                 >
-                  Supprimer
+                  {deletingClientId === client.id && <Loader2 size={12} className="animate-spin" />}
+                  {deletingClientId === client.id ? 'Suppression…' : 'Tout supprimer'}
                 </button>
                 <button
                   onClick={() => setDeleteConfirm(null)}
-                  className="flex-1 px-2 py-1.5 bg-white text-slate-700 rounded hover:bg-slate-100 font-medium text-xs border border-slate-300 transition-all"
+                  disabled={deletingClientId === client.id}
+                  className="flex-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 transition-all hover:bg-slate-100 disabled:opacity-60"
                 >
                   Annuler
                 </button>
@@ -402,6 +490,25 @@ export default function ClientsList() {
                 >
                   <Eye size={12} />
                   Machines
+                </button>
+                <button
+                  onClick={() => toggleClientAccess(client)}
+                  disabled={!clientProfileId || accessUpdatingId === client.id}
+                  className={`flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                    isLocked
+                      ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                      : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                  }`}
+                  title={isLocked ? 'Autoriser de nouveau la connexion' : 'Empêcher temporairement la connexion'}
+                >
+                  {accessUpdatingId === client.id ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : isLocked ? (
+                    <UnlockKeyhole size={12} />
+                  ) : (
+                    <LockKeyhole size={12} />
+                  )}
+                  {isLocked ? 'Déverrouiller' : 'Verrouiller'}
                 </button>
                 <button
                   onClick={() => setDeleteConfirm(client.id)}
