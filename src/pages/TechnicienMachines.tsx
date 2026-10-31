@@ -523,12 +523,17 @@ export default function TechnicienMachines() {
           {allMachines.map((machine) => {
             const stateConfig = getMachineStateConfig(machine.etat);
             const otCount = otCounts[machine.id];
+            const hasActiveOT = Boolean(otCount?.total);
 
             return (
               <div
                 key={machine.id}
-                onClick={() => navigate(`/machine/${machine.id}`)}
-                className="group cursor-pointer rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-lg hover:ring-2 hover:ring-blue-600 md:p-5"
+                onClick={() => navigate(`/machine/${machine.id}?tab=historique`)}
+                className={`group cursor-pointer rounded-lg p-4 shadow-sm ring-1 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:ring-2 md:p-5 ${
+                  hasActiveOT
+                    ? 'bg-gradient-to-br from-amber-50 via-white to-orange-50 ring-orange-300 hover:ring-orange-500'
+                    : 'bg-white ring-slate-100 hover:ring-blue-600'
+                }`}
               >
                 {/* En-tête */}
                 <div className="mb-4 flex items-start justify-between gap-3">
@@ -574,9 +579,9 @@ export default function TechnicienMachines() {
 
                 {/* Badge OT */}
                 {otCount && otCount.total > 0 && (
-                  <div className="mt-4 pt-4 border-t border-slate-100">
-                    <div className="mb-2 flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                      <ClipboardList size={13} className="text-orange-600" />
+                  <div className="mt-4 rounded-lg border border-orange-200 bg-orange-100/80 p-3 shadow-sm">
+                    <div className="mb-2 flex items-center gap-1.5 text-xs font-black text-orange-900">
+                      <ClipboardList size={14} className="text-orange-700" />
                       <span>{otCount.total} OT {otCount.total > 1 ? 'actifs' : 'actif'}</span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
