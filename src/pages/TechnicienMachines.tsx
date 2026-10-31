@@ -67,7 +67,7 @@ export default function TechnicienMachines() {
     }
 
     loadMachines(1, true);
-  }, [profile, searchTerm, filterEtat, filterClient, filterDateProgrammeeFrom, filterDateProgrammeeTo, filterDateCreationFrom, filterDateCreationTo]);
+  }, [profile?.id, searchTerm, filterEtat, filterClient, filterDateProgrammeeFrom, filterDateProgrammeeTo, filterDateCreationFrom, filterDateCreationTo]);
 
   useEffect(() => {
     if (!profile) return;
@@ -85,7 +85,7 @@ export default function TechnicienMachines() {
         setClients(data || []);
         setLoadingClients(false);
       });
-  }, [profile]);
+  }, [profile?.id]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
