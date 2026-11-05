@@ -71,7 +71,7 @@ export default function TechnicienMachineDetail() {
         return;
       }
 
-      // Récupérer TOUS les ordres de travail de la machine
+      // Pour un technicien, afficher uniquement les OT au statut « À faire ».
       const { data: ordresTravailData, error: ordresError } = await supabase
         .from('ordres_travail')
         .select(`
@@ -83,6 +83,7 @@ export default function TechnicienMachineDetail() {
           )
         `)
         .eq('machine_id', machineId)
+        .eq('statut', 'prévu')
         .order('created_at', { ascending: false });
 
       if (ordresError) {
