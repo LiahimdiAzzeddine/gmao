@@ -186,10 +186,18 @@ export default function TechnicienMachines() {
             lot:lots(*),
             secteur:secteurs(*)
           ),
-          ordres_travail!inner(id)
+          ordres_travail!inner(
+            id,
+            interventions!interventions_ot_fkey()
+          )
         `, { count: 'exact' });
 
       query = query.not('ordres_travail.statut', 'in', '("terminé","clôturé_avec_anomalie")');
+
+      // Garder seulement les machines ayant au moins un OT ouvert sans intervention.
+      // Dès que le technicien crée l'intervention du dernier OT restant, la machine
+      // n'est donc plus proposée dans cette liste.
+      query = query.is('ordres_travail.interventions', null);
 
       if (filterEtat !== 'tous') {
         query = query.eq('etat', filterEtat);
