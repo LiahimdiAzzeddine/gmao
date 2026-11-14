@@ -13,6 +13,7 @@ import ClientMachines from './pages/ClientMachines';
 import ClientPlanAction from './pages/ClientPlanAction';
 import ClientOTNonTraites from './pages/ClientOTNonTraites';
 import ClientPlanification from './pages/ClientPlanification';
+import ClientDemandes from './pages/ClientDemandes';
 import TechnicienMachines from './pages/TechnicienMachines';
 import TechnicienMachineDetail from './pages/TechnicienMachineDetail';
 import MachineForm from './components/MachineForm';
@@ -367,6 +368,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <ClientMachines />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/mes-demandes"
+          element={
+            <ProtectedRoute>
+              <ClientDemandes />
             </ProtectedRoute>
           }
         />

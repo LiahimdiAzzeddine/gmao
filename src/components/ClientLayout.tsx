@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Calendar, ChevronLeft, ChevronRight, ClipboardList, FileSpreadsheet, Home, LogOut, Menu, Settings, Wrench, X } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, ClipboardList, FileSpreadsheet, Home, LogOut, Menu, MessageSquareWarning, Settings, Wrench, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -10,6 +10,7 @@ const navItems = [
   { path: '/', icon: Home, label: 'Dashboard' },
   { path: '/mes-interventions', icon: Wrench, label: 'Mes interventions' },
   { path: '/mes-machines', icon: Settings, label: 'Mes machines' },
+  { path: '/mes-demandes', icon: MessageSquareWarning, label: 'Mes demandes' },
   { path: '/mon-plan-action', icon: FileSpreadsheet, label: "Plan d'action" },
   { path: '/mes-ot-non-traites', icon: ClipboardList, label: 'OT non traités' },
   { path: '/ma-planification', icon: Calendar, label: 'Ma planification' },

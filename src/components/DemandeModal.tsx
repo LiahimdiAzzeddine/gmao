@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { supabase, Machine } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -66,6 +67,10 @@ export default function DemandeModal({ machine, onClose, onSuccess }: DemandeMod
         });
 
       if (demandeError) throw demandeError;
+
+      toast.success('Votre demande a été envoyée avec succès.', {
+        duration: 4000,
+      });
 
       setDemandeForm({ 
         description: '', 
