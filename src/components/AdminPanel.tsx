@@ -821,6 +821,13 @@ export default function AdminPanel() {
         color: 'indigo' as const
       },
       {
+        onClick: () => navigate('/admin/plan-action/options'),
+        icon: <Settings size={20} />,
+        title: 'Gérer les classifications',
+        description: 'Lots, familles et modes de défaillance',
+        color: 'red' as const
+      },
+      {
         onClick: () => openPdfModal('react'),
         icon: <Download size={20} />,
         title: 'Télécharger PDF OT',
