@@ -37,8 +37,11 @@ export function useOrdresTravail(filters: Filters, page: number, refreshKey = 0)
 
   // Charger les ordres avec filtres et pagination
   useEffect(() => {
+    let cancelled = false
+
     const loadData = async () => {
       setLoading(true)
+      setError(null)
       try {
         // Si on filtre par client, d'abord récupérer les IDs des machines de ce client
         let machineIds: string[] = [];
@@ -54,9 +57,10 @@ export function useOrdresTravail(filters: Filters, page: number, refreshKey = 0)
           
           // Si le client n'a pas de machines, retourner un résultat vide
           if (machineIds.length === 0) {
-            setOrdres([]);
-            setTotalCount(0);
-            setLoading(false);
+            if (!cancelled) {
+              setOrdres([]);
+              setTotalCount(0);
+            }
             return;
           }
         }
@@ -163,8 +167,10 @@ export function useOrdresTravail(filters: Filters, page: number, refreshKey = 0)
           }
 
           if (searchClauses.length === 0) {
-            setOrdres([]);
-            setTotalCount(0);
+            if (!cancelled) {
+              setOrdres([]);
+              setTotalCount(0);
+            }
             return;
           }
 
@@ -224,15 +230,29 @@ export function useOrdresTravail(filters: Filters, page: number, refreshKey = 0)
           };
         })
 
-        setOrdres(transformedData)
-        setTotalCount(count || 0)
+        if (!cancelled) {
+          setOrdres(transformedData)
+          setTotalCount(count || 0)
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erreur de chargement')
+        if (!cancelled) {
+          console.error('Erreur de chargement des ordres de travail :', err)
+          const message = err instanceof Error
+            ? err.message
+            : typeof err === 'object' && err !== null && 'message' in err
+              ? String(err.message)
+              : 'Erreur de chargement'
+          setError(message)
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     loadData()
+
+    return () => {
+      cancelled = true
+    }
   }, [filters, page, refreshKey])
 
   return { ordres, loading, error, totalCount, clients }

@@ -36,7 +36,8 @@ async function loadDemandes() {
         machines:machine_id (
           *,
           client:client_id (*)
-        )
+        ),
+        request_client:client_id (*)
       `)
       .order('date_demande', { ascending: false });
 
@@ -371,7 +372,7 @@ async function loadDemandes() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="font-semibold text-slate-900">
-                            {machine ? machine.nom : d.machine_id}
+                            {machine ? machine.nom : d.machine_id || 'Sans machine'}
                           </div>
                           {machine && (
                             <div className="text-sm text-slate-500">{machine.modele}</div>
@@ -379,7 +380,7 @@ async function loadDemandes() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="font-semibold text-slate-900">
-                            {machine?.client?.raison_sociale || machine?.client?.prenom || 'Non renseigné'}
+                            {machine?.client?.raison_sociale || machine?.client?.prenom || d.request_client?.raison_sociale || d.request_client?.prenom || 'Non renseigné'}
                           </div>
                         
                         </td>
@@ -419,12 +420,12 @@ async function loadDemandes() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            {d.statut === 'en attente' && d.type_intervention === 'corrective' && (
+                            {d.statut === 'en attente' && d.type_intervention === 'corrective' && d.machine_id && (
                               <button
                                 onClick={() => openConversionModal(d)}
                                 disabled={convertingId !== null}
                                 title="Accepter et créer un OT correctif"
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs font-bold text-emerald-700 transition-all hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-red-600 bg-red-600 px-2.5 py-2 text-xs font-bold text-white shadow-sm transition-all hover:border-red-700 hover:bg-red-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 {convertingId === d.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                                 <span className="hidden xl:inline">Accepter</span>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Filter, X, ChevronDown, Search, ClipboardList, Wrench, Activity, AlertCircle, Settings } from 'lucide-react';
+import { Filter, X, ChevronDown, Search, ClipboardList, Wrench, Activity, AlertCircle, Settings, MessageSquareWarning } from 'lucide-react';
 import { supabase, Machine } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import MainHeader from './MainHeader';
@@ -10,6 +10,7 @@ import EmptyState from './Ui/EmptyState';
 import { Clock, ArrowRight } from 'lucide-react';
 import OrdresTravailList from './ot/OrdresTravailList';
 import { ALL_MACHINE_STATES, MachineState, getMachineStateConfig, normalizeMachineState } from '../types/machineState';
+import DemandeModal from './DemandeModal';
 // Import des composants refactorisés
 import {
   MachineStatusDonutChart,
@@ -1387,6 +1388,7 @@ function FitnessStyleClientDashboard({
   client,
   navigate,
 }: FitnessStyleClientDashboardProps) {
+  const [showDemandeModal, setShowDemandeModal] = useState(false);
   const clientName = client?.raison_sociale || client?.prenom || 'Mon espace';
   const machineHealth = stats.machines > 0 ? Math.round((stats.machinesEnService / stats.machines) * 100) : 0;
   const interventionRate = stats.interventions > 0 ? Math.round((stats.interventionsValidees / stats.interventions) * 100) : 0;
@@ -1445,10 +1447,28 @@ function FitnessStyleClientDashboard({
             <p className="mt-1 text-xs font-medium text-slate-500 md:text-sm">Suivi de votre parc machines et maintenance</p>
           </div>
         </div>
-        <div className="hidden rounded-lg border border-[#ff6b57]/30 bg-white px-3 py-1.5 text-xs font-bold text-[#ff6b57] md:block md:px-4 md:py-2 md:text-sm">
-          {new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date())}
+        <div className="flex items-center gap-2 self-stretch sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setShowDemandeModal(true)}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#ff735f] to-[#f04438] px-4 py-2 text-sm font-bold text-white shadow-lg shadow-red-200/50 transition hover:from-[#f04438] hover:to-[#d93f34] sm:flex-none"
+          >
+            <MessageSquareWarning size={18} />
+            Signaler un problème
+          </button>
+          <div className="hidden rounded-lg border border-[#ff6b57]/30 bg-white px-3 py-1.5 text-xs font-bold text-[#ff6b57] md:block md:px-4 md:py-2 md:text-sm">
+            {new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date())}
+          </div>
         </div>
       </div>
+
+      {showDemandeModal && (
+        <DemandeModal
+          allowMachineSelection
+          onClose={() => setShowDemandeModal(false)}
+          onSuccess={() => setShowDemandeModal(false)}
+        />
+      )}
 
               {error && (
                 <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">

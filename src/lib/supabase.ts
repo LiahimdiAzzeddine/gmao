@@ -68,7 +68,8 @@ export type MaintenancePlanning = {
 export type ExistingDemande = {
   [x: string]: string;
   id: string;
-  machine_id: string;
+  machine_id: string | null;
+  client_id?: string | null;
   description: string;
   urgence: string;
   gamme: string;
@@ -186,6 +187,7 @@ export type DemandeIntervention = {
   problem_lot_id?: string | null;
   problem_family_id?: string | null;
   failure_mode_id?: string | null;
+  request_client?: Client | null;
    // règle de planification calendaire
   planning_rule?: {
     weekOfMonth: number; // 1, 2, 3, 4

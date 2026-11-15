@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, BarChart3, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Cpu, FileSpreadsheet, Home, Inbox, LogOut, Menu, UserCog, Users, Wrench, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -35,6 +35,38 @@ export function AdminLayout({ children, title = 'Administration', showBack = fal
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(() => localStorage.getItem('admin_sidebar_expanded') === 'true');
+  const [pendingDemandesCount, setPendingDemandesCount] = useState(0);
+
+  const loadPendingDemandesCount = useCallback(async () => {
+    const { count, error } = await supabase
+      .from('demande_intervention')
+      .select('id', { count: 'exact', head: true })
+      .eq('statut', 'en attente');
+
+    if (error) {
+      console.error('Impossible de charger le nombre de demandes en attente :', error);
+      return;
+    }
+
+    setPendingDemandesCount(count ?? 0);
+  }, []);
+
+  useEffect(() => {
+    loadPendingDemandesCount();
+
+    const channel = supabase
+      .channel('admin-pending-demandes-count')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'demande_intervention' },
+        loadPendingDemandesCount,
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadPendingDemandesCount]);
 
   const toggleSidebar = () => {
     setSidebarExpanded((expanded) => {
@@ -87,10 +119,16 @@ export function AdminLayout({ children, title = 'Administration', showBack = fal
           <nav className="mt-8 flex w-full flex-col gap-2 px-3">
             {navItems.map((item) => {
               const Icon = item.icon;
+              const showPendingBadge = item.path === '/admin/demandes' && pendingDemandesCount > 0;
               return (
-                <button key={item.path} onClick={() => goTo(item.path)} title={sidebarExpanded ? undefined : item.label} aria-label={item.label} className={`flex h-10 items-center rounded-lg transition-all hover:bg-white/20 ${sidebarExpanded ? 'w-full gap-3 px-3' : 'w-10 justify-center self-center hover:scale-110'} ${isActive(item) ? 'bg-white/20 shadow-sm' : ''}`}>
+                <button key={item.path} onClick={() => goTo(item.path)} title={sidebarExpanded ? undefined : `${item.label}${showPendingBadge ? ` (${pendingDemandesCount} en attente)` : ''}`} aria-label={`${item.label}${showPendingBadge ? `, ${pendingDemandesCount} en attente` : ''}`} className={`relative flex h-10 items-center rounded-lg transition-all hover:bg-white/20 ${sidebarExpanded ? 'w-full gap-3 px-3' : 'w-10 justify-center self-center hover:scale-110'} ${isActive(item) ? 'bg-white/20 shadow-sm' : ''}`}>
                   <Icon size={19} className="shrink-0" />
                   {sidebarExpanded && <span className="truncate text-sm font-semibold">{item.label}</span>}
+                  {showPendingBadge && (
+                    <span className={`${sidebarExpanded ? 'ml-auto' : 'absolute -right-1 -top-1'} flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-black leading-none text-white shadow-sm ring-2 ring-[#f98440]`}>
+                      {pendingDemandesCount > 99 ? '99+' : pendingDemandesCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -114,9 +152,16 @@ export function AdminLayout({ children, title = 'Administration', showBack = fal
             <nav className="absolute left-0 right-0 top-16 grid grid-cols-2 gap-2 bg-white p-4 shadow-xl" onClick={(event) => event.stopPropagation()}>
               {navItems.map((item) => {
                 const Icon = item.icon;
+                const showPendingBadge = item.path === '/admin/demandes' && pendingDemandesCount > 0;
                 return (
                   <button key={item.path} onClick={() => goTo(item.path)} className={`flex items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-bold ${isActive(item) ? 'bg-orange-50 text-[#f98440]' : 'text-slate-700 hover:bg-slate-50'}`}>
-                    <Icon size={18} />{item.label}
+                    <Icon size={18} />
+                    <span className="truncate">{item.label}</span>
+                    {showPendingBadge && (
+                      <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-black leading-none text-white">
+                        {pendingDemandesCount > 99 ? '99+' : pendingDemandesCount}
+                      </span>
+                    )}
                   </button>
                 );
               })}

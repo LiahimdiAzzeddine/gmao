@@ -84,27 +84,16 @@ export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false,
     }
   }
   
-  // Réinitialiser quand les filtres changent
-  useEffect(() => {
-    setAllOrdres([])
-    setPage(1)
-    setHasMore(true)
-  }, [filters])
-  
   // Ajouter les nouveaux ordres à la liste
   useEffect(() => {
-    if (ordres.length > 0) {
-      setAllOrdres(prev => {
-        // Éviter les doublons
-        const existingIds = new Set(prev.map(o => o.id))
-        const newOrdres = ordres.filter(o => !existingIds.has(o.id))
-        return [...prev, ...newOrdres]
-      })
-      
-      // Vérifier s'il y a encore des éléments à charger
-      setHasMore(allOrdres.length + ordres.length < totalCount)
-    }
-  }, [ordres, totalCount])
+    setAllOrdres(prev => {
+      const base = page === 1 ? [] : prev
+      const existingIds = new Set(base.map(o => o.id))
+      const newOrdres = ordres.filter(o => !existingIds.has(o.id))
+      return [...base, ...newOrdres]
+    })
+    setHasMore(page * ITEMS_PER_PAGE < totalCount && ordres.length === ITEMS_PER_PAGE)
+  }, [ordres, page, totalCount])
   
   // Intersection Observer pour le scroll infini
   useEffect(() => {
@@ -144,10 +133,16 @@ export default function OrdresTravailList({ fixedTypeOt, hideTypeFilter = false,
   }, [filters, viewMode, setSearchParams])
   
   const updateFilter = (key: keyof Filters, value: string) => {
+    setAllOrdres([])
+    setPage(1)
+    setHasMore(true)
     setFilters(prev => ({ ...prev, [key]: value }))
   }
   
   const clearFilters = () => {
+    setAllOrdres([])
+    setPage(1)
+    setHasMore(true)
     setFilters({
       clientId: '',
       machineSearch: '',

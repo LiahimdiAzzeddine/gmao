@@ -86,6 +86,7 @@ export default function ClientOTNonTraites() {
   const [machines, setMachines] = useState<Array<{ id: string; nom: string }>>([]);
 
   const observerTarget = React.useRef<HTMLDivElement>(null);
+  const loadRequestId = React.useRef(0);
   const itemsPerPage = 20;
 
   useEffect(() => {
@@ -160,6 +161,7 @@ export default function ClientOTNonTraites() {
 
   async function loadOTNonTraites(page: number, reset: boolean) {
     if (!profile) return;
+    const requestId = ++loadRequestId.current;
 
     try {
       if (reset) {
@@ -208,12 +210,11 @@ export default function ClientOTNonTraites() {
             localisation,
             client_id
           ),
-          interventions:interventions!interventions_ot_fkey(
-            id,
-            valide
-          )
+          valid_interventions:interventions!interventions_ot_fkey()
         `, { count: 'exact' })
-        .eq('machine.client_id', clientId);
+        .eq('machine.client_id', clientId)
+        .eq('valid_interventions.valide', true)
+        .is('valid_interventions', null);
 
       // Filtre par type
       if (filterType !== 'tous') {
@@ -222,36 +223,35 @@ export default function ClientOTNonTraites() {
 
       const { data: otData, count, error: otError } = await query
         .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
         .range(from, to);
 
       if (otError) throw otError;
+      if (requestId !== loadRequestId.current) return;
 
-      // Filtrer les OT non traités (sans intervention validée)
-      const newOTs = ((otData || []) as OTNonTraite[]).filter((ot) => {
-        const hasValidIntervention = (ot.interventions || []).some((inter) => inter.valide === true);
-        return !hasValidIntervention;
-      });
+      const newOTs = (otData || []) as OTNonTraite[];
 
       if (reset) {
         setOrdresTravail(newOTs);
-        // Compter tous les OT non traités
-        const allOTCount = ((otData || []) as OTNonTraite[]).filter((ot) => {
-          const hasValidIntervention = (ot.interventions || []).some((inter) => inter.valide === true);
-          return !hasValidIntervention;
-        }).length;
-        setTotalCount(allOTCount);
       } else {
-        setOrdresTravail((prev) => [...prev, ...newOTs]);
+        setOrdresTravail((prev) => {
+          const existingIds = new Set(prev.map((ot) => ot.id));
+          return [...prev, ...newOTs.filter((ot) => !existingIds.has(ot.id))];
+        });
       }
 
+      setTotalCount(count ?? 0);
       setCurrentPage(page);
-      setHasMore(newOTs.length === itemsPerPage);
+      setHasMore((page + 1) * itemsPerPage < (count ?? 0));
     } catch (err) {
+      if (requestId !== loadRequestId.current) return;
       console.error('Erreur chargement OT non traités:', err);
       setError('Impossible de charger les ordres de travail non traités.');
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
+      if (requestId === loadRequestId.current) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
   }
 
