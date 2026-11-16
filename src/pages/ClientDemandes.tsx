@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Search,
   Wrench,
+  X,
   XCircle,
 } from 'lucide-react';
 import ClientLayout from '../components/ClientLayout';
@@ -27,6 +28,34 @@ type ClientRequest = {
     nom: string;
     modele: string | null;
   } | null;
+  workOrders: Array<{
+    id: string;
+    numot: number | null;
+    statut: string;
+    interventions: RequestIntervention[];
+  }>;
+};
+
+type RequestIntervention = {
+  id: string;
+  ordre_travail_id: string;
+  date_debut: string | null;
+  date_fin: string | null;
+  duree_minutes: number | null;
+  resultat: string | null;
+  etat_machine_apres: string | null;
+  commentaire: string | null;
+  pieces_remplacees: string | null;
+  valide: boolean | null;
+  technicien: { nom: string | null } | null;
+};
+
+type RequestWorkOrder = {
+  id: string;
+  numot: number | null;
+  statut: string;
+  demande_id: string;
+  interventions: RequestIntervention[];
 };
 
 const statusConfig: Record<string, { label: string; classes: string; icon: typeof Clock3 }> = {
@@ -55,6 +84,21 @@ function getStatusConfig(status: string) {
   };
 }
 
+const workOrderStatusConfig: Record<string, { label: string; classes: string }> = {
+  'prévu': { label: 'Prévu', classes: 'border-blue-200 bg-blue-50 text-blue-700' },
+  'en_cours': { label: 'En cours', classes: 'border-amber-200 bg-amber-50 text-amber-700' },
+  'terminé': { label: 'Clôturé', classes: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+  'clôturé_avec_anomalie': { label: 'Clôturé avec anomalie', classes: 'border-orange-200 bg-orange-50 text-orange-700' },
+  'annulé': { label: 'Annulé', classes: 'border-red-200 bg-red-50 text-red-700' },
+};
+
+function getWorkOrderStatusConfig(status: string) {
+  return workOrderStatusConfig[status] || {
+    label: status.replaceAll('_', ' '),
+    classes: 'border-slate-200 bg-slate-50 text-slate-700',
+  };
+}
+
 export default function ClientDemandes() {
   const { profile } = useAuth();
   const [requests, setRequests] = useState<ClientRequest[]>([]);
@@ -62,6 +106,7 @@ export default function ClientDemandes() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('tous');
+  const [selectedRequest, setSelectedRequest] = useState<ClientRequest | null>(null);
 
   useEffect(() => {
     if (profile?.id) loadRequests();
@@ -90,7 +135,66 @@ export default function ClientDemandes() {
         .order('date_demande', { ascending: false });
 
       if (requestError) throw requestError;
-      setRequests((data || []) as unknown as ClientRequest[]);
+
+      const requestRows = data || [];
+      const requestIds = requestRows.map((request) => request.id);
+      let workOrders: RequestWorkOrder[] = [];
+
+      if (requestIds.length > 0) {
+        const { data: workOrderData, error: workOrderError } = await supabase
+          .from('ordres_travail')
+          .select('id, numot, statut, demande_id')
+          .in('demande_id', requestIds)
+          .order('created_at', { ascending: false });
+
+        if (workOrderError) throw workOrderError;
+        const workOrderRows = (workOrderData || []) as Omit<RequestWorkOrder, 'interventions'>[];
+        const workOrderIds = workOrderRows.map((workOrder) => workOrder.id);
+        let interventions: RequestIntervention[] = [];
+
+        if (workOrderIds.length > 0) {
+          const { data: interventionData, error: interventionError } = await supabase
+            .from('interventions')
+            .select(`
+              id,
+              ordre_travail_id,
+              date_debut,
+              date_fin,
+              duree_minutes,
+              resultat,
+              etat_machine_apres,
+              commentaire,
+              pieces_remplacees,
+              valide,
+              technicien:profiles!interventions_technicien_fkey (nom)
+            `)
+            .in('ordre_travail_id', workOrderIds)
+            .order('date_debut', { ascending: false });
+
+          if (interventionError) throw interventionError;
+          interventions = (interventionData || []) as unknown as RequestIntervention[];
+        }
+
+        const interventionsByWorkOrder = interventions.reduce<Record<string, RequestIntervention[]>>((grouped, intervention) => {
+          (grouped[intervention.ordre_travail_id] ||= []).push(intervention);
+          return grouped;
+        }, {});
+
+        workOrders = workOrderRows.map((workOrder) => ({
+          ...workOrder,
+          interventions: interventionsByWorkOrder[workOrder.id] || [],
+        }));
+      }
+
+      const workOrdersByRequest = workOrders.reduce<Record<string, RequestWorkOrder[]>>((grouped, workOrder) => {
+        (grouped[workOrder.demande_id] ||= []).push(workOrder);
+        return grouped;
+      }, {});
+
+      setRequests(requestRows.map((request) => ({
+        ...request,
+        workOrders: workOrdersByRequest[request.id] || [],
+      })) as unknown as ClientRequest[]);
     } catch (loadError) {
       console.error('Erreur chargement demandes client:', loadError);
       setError('Impossible de charger vos demandes pour le moment.');
@@ -116,6 +220,7 @@ export default function ClientDemandes() {
         request.description,
         request.machine?.nom,
         request.machine?.modele,
+        ...request.workOrders.flatMap((workOrder) => [workOrder.numot?.toString(), workOrder.statut]),
       ].some((value) => value?.toLocaleLowerCase('fr').includes(query));
 
       return matchesStatus && matchesSearch;
@@ -214,7 +319,20 @@ export default function ClientDemandes() {
             const StatusIcon = currentStatus.icon;
 
             return (
-              <article key={request.id} className="rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100 sm:p-5">
+              <article
+                key={request.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedRequest(request)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setSelectedRequest(request);
+                  }
+                }}
+                className="cursor-pointer rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-md hover:ring-[#ff6b57]/30 focus:outline-none focus:ring-2 focus:ring-[#ff6b57] sm:p-5"
+                aria-label={`Afficher les détails de ${request.label || 'la demande'}`}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h2 className="truncate text-base font-black text-slate-900 sm:text-lg">
@@ -243,6 +361,19 @@ export default function ClientDemandes() {
                   <span className={`rounded-full px-2.5 py-1 ${request.urgence === 'élevée' ? 'bg-red-50 text-red-700' : request.urgence === 'moyenne' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
                     Urgence : {request.urgence}
                   </span>
+                  {request.workOrders.map((workOrder) => {
+                    const workOrderStatus = getWorkOrderStatusConfig(workOrder.statut);
+                    return (
+                      <span
+                        key={workOrder.id}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${workOrderStatus.classes}`}
+                        title="Statut de l'ordre de travail lié"
+                      >
+                        <Wrench size={13} />
+                        OT{workOrder.numot ? ` #${workOrder.numot}` : ''} : {workOrderStatus.label}
+                      </span>
+                    );
+                  })}
                   <span className="ml-auto inline-flex items-center gap-1.5 text-slate-500">
                     <CalendarDays size={14} />
                     {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(request.date_demande))}
@@ -253,6 +384,157 @@ export default function ClientDemandes() {
           })}
         </div>
       )}
+
+      {selectedRequest && (
+        <RequestDetailsModal request={selectedRequest} onClose={() => setSelectedRequest(null)} />
+      )}
     </ClientLayout>
   );
+}
+
+function RequestDetailsModal({ request, onClose }: { request: ClientRequest; onClose: () => void }) {
+  const requestStatus = getStatusConfig(request.statut);
+  const RequestStatusIcon = requestStatus.icon;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-3 sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="request-details-title"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-lg bg-white shadow-xl">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-slate-500">Détails de la demande</p>
+            <h2 id="request-details-title" className="mt-1 truncate text-lg font-black text-slate-900 sm:text-xl">
+              {request.label || 'Problème signalé'}
+            </h2>
+            <p className="mt-1 text-xs text-slate-400">Référence : {request.id.slice(0, 8).toUpperCase()}</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800" aria-label="Fermer">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="space-y-6 p-4 sm:p-6">
+          <section>
+            <h3 className="mb-3 font-bold text-slate-900">Informations de la demande</h3>
+            <div className="flex flex-wrap gap-2">
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${requestStatus.classes}`}>
+                <RequestStatusIcon size={13} />
+                Demande : {requestStatus.label}
+              </span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+                {request.type_intervention === 'preventive' ? 'Préventive' : 'Corrective'}
+              </span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+                Urgence : {request.urgence}
+              </span>
+            </div>
+
+            <dl className="mt-4 grid gap-4 rounded-lg bg-slate-50 p-4 sm:grid-cols-2">
+              <DetailItem label="Machine" value={[request.machine?.nom, request.machine?.modele].filter(Boolean).join(' · ') || 'Non renseignée'} />
+              <DetailItem label="Date de demande" value={formatDateTime(request.date_demande)} />
+            </dl>
+            <div className="mt-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Description</p>
+              <p className="mt-1 whitespace-pre-line text-sm leading-6 text-slate-700">{request.description || 'Aucune description.'}</p>
+            </div>
+          </section>
+
+          <section className="border-t border-slate-200 pt-5">
+            <div>
+              <h3 className="font-bold text-slate-900">Ordres de travail et interventions</h3>
+              <p className="mt-1 text-xs text-slate-500">Suivi des opérations associées à cette demande</p>
+            </div>
+            {request.workOrders.length === 0 ? (
+              <p className="mt-3 rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Aucun ordre de travail n’a encore été créé pour cette demande.</p>
+            ) : (
+              <div className="mt-3 space-y-4">
+                {request.workOrders.map((workOrder) => {
+                  const workOrderStatus = getWorkOrderStatusConfig(workOrder.statut);
+                  return (
+                    <div key={workOrder.id} className="overflow-hidden rounded-lg border border-slate-200">
+                      <div className="bg-slate-50 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h4 className="font-bold text-slate-900">OT{workOrder.numot ? ` #${workOrder.numot}` : ''}</h4>
+                        <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${workOrderStatus.classes}`}>{workOrderStatus.label}</span>
+                      </div>
+                      </div>
+
+                      {workOrder.interventions.length === 0 ? (
+                        <p className="p-4 text-sm text-slate-500">Aucune intervention associée à cet OT.</p>
+                      ) : (
+                        <div className={`grid gap-3 p-4 ${workOrder.interventions.length > 1 ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
+                          {workOrder.interventions.map((intervention, index) => (
+                            <div
+                              key={intervention.id}
+                              className={`rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm ${
+                                workOrder.interventions.length > 1 &&
+                                workOrder.interventions.length % 2 === 1 &&
+                                index === workOrder.interventions.length - 1
+                                  ? 'lg:col-span-2'
+                                  : ''
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="font-bold text-slate-800">Intervention {index + 1}</p>
+                                <span className={`rounded-full px-2 py-1 text-[11px] font-bold ${intervention.valide ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                                  {intervention.valide ? 'Validée' : 'À valider'}
+                                </span>
+                              </div>
+                              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                                <DetailItem label="Technicien" value={intervention.technicien?.nom || 'Non renseigné'} />
+                                <DetailItem label="Résultat" value={intervention.resultat || 'Non renseigné'} />
+                                <DetailItem label="Début" value={formatDateTime(intervention.date_debut)} />
+                                <DetailItem label="Fin" value={formatDateTime(intervention.date_fin)} />
+                                <DetailItem label="Durée" value={formatDuration(intervention.duree_minutes)} />
+                                <DetailItem label="État de la machine après" value={intervention.etat_machine_apres || 'Non renseigné'} />
+                                <DetailItem label="Pièces remplacées" value={intervention.pieces_remplacees || 'Aucune'} />
+                              </dl>
+                              {intervention.commentaire && (
+                                <div className="mt-3 border-t border-slate-200 pt-3">
+                                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Commentaire</p>
+                                  <p className="mt-1 whitespace-pre-line text-slate-700">{intervention.commentaire}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</dt>
+      <dd className="mt-1 break-words text-sm font-semibold text-slate-800">{value}</dd>
+    </div>
+  );
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return 'Non renseignée';
+  return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+}
+
+function formatDuration(minutes: number | null) {
+  if (!minutes) return 'Non renseignée';
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return hours > 0 ? `${hours} h ${remainingMinutes} min` : `${remainingMinutes} min`;
 }

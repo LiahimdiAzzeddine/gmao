@@ -492,6 +492,8 @@ export default function ClientPlanAction() {
         </div>
       </div>
 
+      <AmdecExplanation />
+
       {/* Erreur */}
       {error && (
         <div className="mt-4 md:mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
@@ -590,6 +592,119 @@ export default function ClientPlanAction() {
         </>
       )}
     </ClientLayout>
+  );
+}
+
+function AmdecExplanation() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <section className="mb-4 mt-4 rounded-lg border border-slate-200 bg-white shadow-sm md:mb-6 md:mt-6">
+      <button
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-bold text-slate-800 transition-colors hover:bg-slate-50 sm:px-5"
+        aria-expanded={isOpen}
+      >
+        <span>Explication AMDEC</span>
+        <span className="text-xs font-semibold text-[#d93f34]">
+          {isOpen ? 'Masquer' : 'Afficher'}
+        </span>
+      </button>
+
+      {isOpen && (
+      <div className="border-t border-slate-200 p-4 text-xs leading-relaxed text-slate-700 sm:p-5 sm:text-sm">
+
+      <div className="space-y-2">
+        <p>
+          L’AMDEC (Analyse des Modes de Défaillance, de leurs Effets et de leur Criticité) est une méthode
+          d’analyse préventive permettant d’identifier les défaillances potentielles des équipements et
+          installations, d’évaluer leurs risques et de définir les actions nécessaires pour les maîtriser.
+        </p>
+        <p>
+          Chaque défaillance est évaluée selon trois critères : la gravité (G), la fréquence d’occurrence (O)
+          et la détectabilité (D), notés sur une échelle de 1 à 5.
+        </p>
+        <p><strong>RPN minimum :</strong> 1<br /><strong>RPN maximum :</strong> 125</p>
+        <p>
+          Le calcul du RPN Risk Priority Number (G × O × D) permet de déterminer le niveau de criticité et de
+          hiérarchiser les priorités d’intervention.
+        </p>
+        <p className="font-bold text-slate-900">RPN = G × O × D</p>
+        <p>
+          Cette analyse permet d’établir un plan d’action adapté, visant à prévenir les pannes, améliorer la
+          fiabilité des installations et optimiser les opérations de maintenance.
+        </p>
+      </div>
+
+      <ul className="mt-4 list-disc space-y-1 pl-5">
+        <li><strong>G (Gravité) de 1 à 5 :</strong> importance des conséquences.</li>
+        <li><strong>O (Occurrence) de 1 à 5 :</strong> fréquence d’apparition de la panne.</li>
+        <li><strong>D (Détection) de 1 à 5 :</strong> difficulté à détecter la panne.</li>
+      </ul>
+
+      <h3 className="mb-2 mt-5 font-bold text-slate-900">Grille de criticité RPN – AMDEC</h3>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] border-collapse text-left">
+          <thead className="bg-slate-100 text-slate-900">
+            <tr>
+              <th className="border border-slate-300 px-3 py-2">RPN</th>
+              <th className="border border-slate-300 px-3 py-2">Niveau de criticité</th>
+              <th className="border border-slate-300 px-3 py-2">Priorité d’intervention</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              ['1 à 20', 'Très faible', 'P5 – Surveillance'],
+              ['21 à 40', 'Faible', 'P4 – Intervention normale'],
+              ['41 à 60', 'Moyenne', 'P3 – Intervention planifiée'],
+              ['61 à 90', 'Élevée', 'P2 – Intervention prioritaire'],
+              ['91 à 125', 'Critique', 'P1 – Intervention urgente'],
+            ].map((row) => (
+              <tr key={row[0]}>
+                {row.map((value) => <td key={value} className="border border-slate-300 px-3 py-2">{value}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h3 className="mb-2 mt-5 font-bold text-slate-900">Exemple</h3>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[620px] border-collapse text-left">
+          <thead className="bg-slate-100 text-slate-900">
+            <tr>
+              {['Défaillance', 'G', 'O', 'D', 'RPN', 'Priorité'].map((heading) => (
+                <th key={heading} className="border border-slate-300 px-3 py-2">{heading}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              ['Fuite d’eau', '3', '4', '2', '24', 'P4'],
+              ['Court-circuit électrique', '5', '3', '4', '60', 'P3'],
+              ['Panne climatisation', '3', '3', '3', '27', 'P4'],
+              ['Blocage porte', '2', '4', '2', '16', 'P5'],
+              ['Défaut mise à la terre', '5', '4', '5', '100', 'P1'],
+            ].map((row) => (
+              <tr key={row[0]}>
+                {row.map((value, index) => (
+                  <td key={`${row[0]}-${index}`} className="border border-slate-300 px-3 py-2">{value}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="mt-4">
+        <strong>Attention :</strong> ces seuils sont une proposition de classification interne. Ils ne sont pas
+        universels. Une défaillance liée à la sécurité peut nécessiter une intervention immédiate même si son
+        RPN est faible.
+      </p>
+      </div>
+      )}
+    </section>
   );
 }
 

@@ -11,6 +11,7 @@ import { Clock, ArrowRight } from 'lucide-react';
 import OrdresTravailList from './ot/OrdresTravailList';
 import { ALL_MACHINE_STATES, MachineState, getMachineStateConfig, normalizeMachineState } from '../types/machineState';
 import DemandeModal from './DemandeModal';
+import QRScannerButton from './QRScannerButton';
 // Import des composants refactorisés
 import {
   MachineStatusDonutChart,
@@ -1448,6 +1449,7 @@ function FitnessStyleClientDashboard({
           </div>
         </div>
         <div className="flex items-center gap-2 self-stretch sm:self-auto">
+          <QRScannerButton className="flex-1 sm:flex-none" />
           <button
             type="button"
             onClick={() => setShowDemandeModal(true)}

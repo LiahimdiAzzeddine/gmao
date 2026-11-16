@@ -1199,7 +1199,7 @@ function ClientValidationStatus({
     <button
       type="button"
       onClick={onOpen}
-      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-3 py-2 text-xs font-bold text-white transition-all hover:from-emerald-600 hover:to-emerald-700 shadow-sm"
+      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-red-500 to-red-600 px-3 py-2 text-xs font-bold text-white transition-all hover:from-red-600 hover:to-red-700 shadow-sm"
     >
       <CheckCircle2 size={14} />
       Valider

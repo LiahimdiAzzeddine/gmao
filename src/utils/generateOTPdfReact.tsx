@@ -827,7 +827,7 @@ const OTPdfDocument: React.FC<OTPdfDocumentProps> = ({ ordre, qrCodeDataUrl }) =
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
                         {etapeCheckee.image_avant_urls.slice(0, 3).map((url: string, idx: number) => (
                           <View key={idx}>
-                            <Image src={url} style={{ height: 55, maxWidth: 130, objectFit: 'contain', border: '0.5pt solid #cbd5e1' }} />
+                            <Image src={url} style={{ width: 110, height: 55, objectFit: 'contain', border: '0.5pt solid #cbd5e1' }} />
                             <Text style={{ fontSize: 5, color: '#64748b', marginTop: 1, textAlign: 'center' }}>
                               {idx + 1}
                             </Text>
@@ -845,7 +845,7 @@ const OTPdfDocument: React.FC<OTPdfDocumentProps> = ({ ordre, qrCodeDataUrl }) =
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
                         {etapeCheckee.image_apres_urls.slice(0, 3).map((url: string, idx: number) => (
                           <View key={idx}>
-                            <Image src={url} style={{ height: 55, maxWidth: 130, objectFit: 'contain', border: '0.5pt solid #cbd5e1' }} />
+                            <Image src={url} style={{ width: 110, height: 55, objectFit: 'contain', border: '0.5pt solid #cbd5e1' }} />
                             <Text style={{ fontSize: 5, color: '#64748b', marginTop: 1, textAlign: 'center' }}>
                               {idx + 1}
                             </Text>
@@ -1020,8 +1020,8 @@ const OTPdfDocument: React.FC<OTPdfDocumentProps> = ({ ordre, qrCodeDataUrl }) =
                             <Image 
                               src={url} 
                               style={{ 
-                                height: 120, 
-                                maxWidth: 300,
+                                width: 110,
+                                height: 120,
                                 objectFit: 'contain',
                                 border: '0.5pt solid #cbd5e1',
                                 borderRadius: 2
@@ -1046,8 +1046,8 @@ const OTPdfDocument: React.FC<OTPdfDocumentProps> = ({ ordre, qrCodeDataUrl }) =
                             <Image 
                               src={url} 
                               style={{ 
-                                height: 120, 
-                                maxWidth: 300,
+                                width: 110,
+                                height: 120,
                                 objectFit: 'contain',
                                 border: '0.5pt solid #cbd5e1',
                                 borderRadius: 2
@@ -1132,6 +1132,75 @@ const OTPdfDocument: React.FC<OTPdfDocumentProps> = ({ ordre, qrCodeDataUrl }) =
   );
 };
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error || new Error('Impossible de lire l’image'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function fetchImageAsDataUrl(url: string): Promise<string> {
+  if (!url || url.startsWith('data:')) return url;
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        cache: attempt === 0 ? 'default' : 'reload',
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const blob = await response.blob();
+      if (!blob.type.startsWith('image/')) throw new Error(`Format inattendu : ${blob.type || 'inconnu'}`);
+      return await blobToDataUrl(blob);
+    } catch (error) {
+      lastError = error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
+  console.warn('Image PDF non préchargée, utilisation de l’URL originale :', url, lastError);
+  return url;
+}
+
+async function prepareImagesForPdf(ordre: OrdreTravailDetail & { interventions?: any[] }) {
+  const imageCache = new Map<string, Promise<string>>();
+  const preload = (url?: string | null) => {
+    if (!url) return Promise.resolve(url || '');
+    if (!imageCache.has(url)) imageCache.set(url, fetchImageAsDataUrl(url));
+    return imageCache.get(url)!;
+  };
+  const preloadList = (urls?: string[] | null) => Promise.all((urls || []).map((url) => preload(url)));
+
+  const interventions = await Promise.all((ordre.interventions || []).map(async (intervention) => ({
+    ...intervention,
+    image_avant_urls: await preloadList(intervention.image_avant_urls),
+    image_apres_urls: await preloadList(intervention.image_apres_urls),
+    etapes_gamme_checkees: await Promise.all((intervention.etapes_gamme_checkees || []).map(async (etape: any) => ({
+      ...etape,
+      image_avant_urls: await preloadList(etape.image_avant_urls),
+      image_apres_urls: await preloadList(etape.image_apres_urls),
+    }))),
+  })));
+
+  const client = ordre.machine?.client
+    ? { ...ordre.machine.client, logo_url: await preload(ordre.machine.client.logo_url) }
+    : ordre.machine?.client;
+
+  return {
+    ...ordre,
+    machine: ordre.machine ? { ...ordre.machine, client } : ordre.machine,
+    interventions,
+  };
+}
+
 export const generateOTPdfReact = async (
   ordre: OrdreTravailDetail & { interventions?: any[] },
   options: { download?: boolean } = {}
@@ -1152,8 +1221,11 @@ export const generateOTPdfReact = async (
       });
     }
 
-    // Générer le PDF
-    const blob = await pdf(<OTPdfDocument ordre={ordre} qrCodeDataUrl={qrCodeDataUrl} />).toBlob();
+    // Précharger les photos avant le rendu pour éviter les images absentes dans le PDF.
+    const ordreWithPreparedImages = await prepareImagesForPdf(ordre);
+
+    // Générer le PDF uniquement lorsque toutes les images sont prêtes.
+    const blob = await pdf(<OTPdfDocument ordre={ordreWithPreparedImages} qrCodeDataUrl={qrCodeDataUrl} />).toBlob();
     
     if (options.download !== false) {
       const fileName = `OT_${ordre.numot}_${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`;

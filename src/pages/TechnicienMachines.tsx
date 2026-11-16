@@ -121,7 +121,7 @@ export default function TechnicienMachines() {
       .from('ordres_travail')
       .select('machine_id, statut, type')
       .in('machine_id', machineIds)
-      .not('statut', 'in', '("terminé","clôturé_avec_anomalie")');
+      .eq('statut', 'prévu');
 
     if (!openError && openData) {
       const counts: Record<string, { total: number; preventive: number; corrective: number; curative: number }> = {};
@@ -187,17 +187,13 @@ export default function TechnicienMachines() {
             secteur:secteurs(*)
           ),
           ordres_travail!inner(
-            id,
-            interventions!interventions_ot_fkey()
+            id
           )
         `, { count: 'exact' });
 
-      query = query.not('ordres_travail.statut', 'in', '("terminé","clôturé_avec_anomalie")');
-
-      // Garder seulement les machines ayant au moins un OT ouvert sans intervention.
-      // Dès que le technicien crée l'intervention du dernier OT restant, la machine
-      // n'est donc plus proposée dans cette liste.
-      query = query.is('ordres_travail.interventions', null);
+      // Appliquer la même règle que dans la fiche machine du technicien :
+      // afficher uniquement les machines ayant au moins un OT « À faire ».
+      query = query.eq('ordres_travail.statut', 'prévu');
 
       if (filterEtat !== 'tous') {
         query = query.eq('etat', filterEtat);
